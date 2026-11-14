@@ -19,8 +19,9 @@ This component is **not production-safe**: no sequence-enforced
 input, persistent log, Raft, leader fencing, risk checks, reserved balances,
 fees, self-trade prevention, trading halts, market precision limits, or ledger
 settlement. A caller must not treat `submit` as durable acceptance. The
-independent `OrderStateMachine` is **not yet wired** to this matcher; in a
-production design only committed sequenced commands should drive execution.
+`SequencedExchange` adapter now connects committed in-memory order commands
+to matching and checks replay and independent event invariants. This is not a
+durable consensus commit and provides no fencing or concurrent-writer safety.
 Execution IDs are local and must not be used as globally durable identifiers.
 
 ## Cancelling resting liquidity
@@ -35,11 +36,24 @@ a partially filled order can only cancel its outstanding remainder.
 rebuilds fills and remaining quantities when provided the exact same ordered
 action stream. The original `replay(orders)` remains for place-only streams.
 Neither method provides durable storage or replicated consensus. Cancellation
-is **not** yet connected to the independent order state machine; that model
-still treats partially filled orders as open without tracking filled quantity.
+is connected through `SequencedExchange`; the underlying order state machine
+still treats partially filled orders as open, while the integrated lifecycle
+projection reports fills and cancelled remainder.
 
 Run the targeted checks with
 `python3 -m unittest discover -s tests -p 'test_matching*.py' -v`.
 
-Next: connect committed, sequenced order commands to matching and test
-replay across placements and cancellations, before adding ledger settlement.
+## Price/time priority regression
+
+`tests/test_matching_priority_regression.py` asserts explicit maker order and
+fill quantities independently of the matcher replay oracle. It checks best ask
+for buy takers, best bid for sell takers, FIFO within a price level, priority
+retention after partial fills, cancellation removing the earliest maker, and
+market isolation/non-crossing orders. A deterministic replay matching itself
+is insufficient evidence of correct price/time priority, so these assertions
+use fixed expected executions.
+
+Run: `python3 -m unittest discover -s tests -p 'test_matching_priority_regression.py' -v`.
+
+Next: add a separate reference order-book oracle or property-based tests for
+larger streams, then move toward durable sequenced commands and ledger posting.
