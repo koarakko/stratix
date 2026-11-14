@@ -55,5 +55,22 @@ use fixed expected executions.
 
 Run: `python3 -m unittest discover -s tests -p 'test_matching_priority_regression.py' -v`.
 
-Next: add a separate reference order-book oracle or property-based tests for
-larger streams, then move toward durable sequenced commands and ledger posting.
+## Independent generated-stream oracle
+
+`tests/test_matching_reference_oracle.py` includes a deliberately simple,
+test-only reference book. It uses per-price FIFO `deque` queues instead of
+replaying the implementation's own matcher, and compares **every step** of
+40 fixed-seed streams of 80 actions each. The streams mix two markets, buy/sell
+limits, partial fills, and cancellation. Both complete execution tuples
+(maker, taker, market, maker price, quantity) and all outstanding quantities
+must match. A separate case checks partial fill, cancellation, and replay.
+
+Run: `python3 -m unittest discover -s tests -p 'test_matching_reference_oracle.py' -v`.
+
+The seeds are reproducible but not exhaustive; both implementations could
+still share a defect. The oracle intentionally models only valid single-writer
+commands, not network partitions, concurrency, durability, or financial
+settlement. It is a test oracle, not a second production matching engine.
+
+Next: add deterministic failure/recovery tests around a durable command log,
+then integrate balance reservation and double-entry ledger posting.
