@@ -14,6 +14,11 @@ class LimitOrder:
 
 
 @dataclass(frozen=True)
+class CancelRequest:
+    order_id: str
+
+
+@dataclass(frozen=True)
 class Execution:
     execution_id: str
     maker_order_id: str
@@ -73,6 +78,20 @@ class MatchingEngine:
         self._remaining[order.order_id] = left
         return tuple(produced)
 
+    def cancel(self, order_id: str) -> Decimal:
+        """Cancel an open remainder; return quantity removed from the book.
+
+        Unknown, already filled, or already cancelled orders are rejected.
+        Historical execution events are never modified.
+        """
+        if not isinstance(order_id, str) or not order_id.strip():
+            raise MatchingError("order_id must be a nonempty string")
+        if order_id not in self._orders or self._remaining[order_id] == 0:
+            raise MatchingError("only an order with open remainder can be cancelled")
+        removed = self._remaining[order_id]
+        self._remaining[order_id] = Decimal(0)
+        return removed
+
     def remaining(self, order_id: str) -> Decimal:
         return self._remaining[order_id]
 
@@ -84,4 +103,17 @@ class MatchingEngine:
         engine = cls()
         for order in orders:
             engine.submit(order)
+        return engine
+
+    @classmethod
+    def replay_actions(cls, actions: Iterable[LimitOrder | CancelRequest]) -> "MatchingEngine":
+        """Replay a single-writer stream including cancellation commands."""
+        engine = cls()
+        for action in actions:
+            if isinstance(action, LimitOrder):
+                engine.submit(action)
+            elif isinstance(action, CancelRequest):
+                engine.cancel(action.order_id)
+            else:
+                raise MatchingError("unsupported replay action")
         return engine
