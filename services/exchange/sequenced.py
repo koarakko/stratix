@@ -6,7 +6,7 @@ from copy import deepcopy
 from typing import Iterable
 
 from services.exchange.lifecycle import OrderLifecycle, project_lifecycle
-from services.matching.model import Execution, LimitOrder, MatchingEngine
+from services.matching.model import CancelRequest, Execution, LimitOrder, MatchingEngine
 from services.orders.model import CancelOrder, Command, OrderStateMachine, PlaceOrder, SequenceError
 
 
@@ -16,9 +16,25 @@ class LifecycleConsistencyError(ValueError):
 
 def _verified_lifecycle(orders: OrderStateMachine, matching: MatchingEngine) -> dict[str, OrderLifecycle]:
     """Project one logical snapshot, comparing independent remaining quantities."""
-    lifecycle = project_lifecycle(orders.history(), matching.executions())
+    history = orders.history()
+    # Reconstruct executions from the exact committed command order; quantity
+    # totals alone cannot detect forged makers, prices, or event ordering.
+    actions = []
+    for command in history:
+        payload = command.payload
+        if isinstance(payload, PlaceOrder):
+            actions.append(LimitOrder(payload.order_id, payload.market, payload.side,
+                                      payload.price, payload.quantity))
+        elif isinstance(payload, CancelOrder):
+            actions.append(CancelRequest(payload.order_id))
+        else:
+            raise LifecycleConsistencyError("unsupported committed command")
+    expected = MatchingEngine.replay_actions(actions)
+    if expected.executions() != matching.executions():
+        raise LifecycleConsistencyError("executions disagree with committed command replay")
+    lifecycle = project_lifecycle(history, matching.executions())
     for order_id, state in lifecycle.items():
-        if state.remaining != matching.remaining(order_id):
+        if state.remaining != matching.remaining(order_id) or state.remaining != expected.remaining(order_id):
             raise LifecycleConsistencyError(f"remaining quantity mismatch for {order_id}")
     return lifecycle
 
