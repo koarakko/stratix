@@ -49,6 +49,8 @@ class SequencedExchange:
         orders = deepcopy(self._orders)
         matching = deepcopy(self._matching)
         if not orders.apply(command):
+            # An idempotent acknowledgement must never hide a corrupted book.
+            _verified_lifecycle(self._orders, self._matching)
             return ()
         payload = command.payload
         if isinstance(payload, PlaceOrder):
