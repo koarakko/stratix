@@ -2,7 +2,7 @@
 
 Status: **educational executable model**, not production ready.
 
-The Python standard-library model in `services/ledger/model.py` represents a journal posting as an immutable transaction ID plus a tuple of signed account/asset entries. A valid posting has at least two nonzero finite `Decimal` entries and sums to zero **for each asset independently**. A repeated transaction ID with identical entries is a no-op; reusing an ID with different entries is an error. Invalid postings do not mutate the journal or balances. Replaying a journal reconstructs balances deterministically.
+The Python standard-library model in `services/ledger/model.py` represents a journal posting as an immutable transaction ID plus a tuple of signed account/asset entries. A valid posting has at least two nonzero finite `Decimal` entries and sums to zero **for each asset independently**. A repeated transaction ID with identical entries is a no-op; reusing an ID with different entries is an error. Invalid postings do not mutate the journal or balances. Replaying a journal reconstructs balances deterministically. **Recovery replay is strict:** a repeated transaction ID in the supplied journal (even an identical duplicate) raises `DuplicateJournalEntryError`. This differs intentionally from online `post()`, where an identical retry is a no-op. A duplicate in a supposedly canonical recovery stream indicates an upstream export, log, or recovery defect and must not be silently hidden.
 
 Run from the repository root:
 
