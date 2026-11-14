@@ -5,8 +5,22 @@ Educational only: copying memory is NOT durable replication or writer fencing.
 from copy import deepcopy
 from typing import Iterable
 
+from services.exchange.lifecycle import OrderLifecycle, project_lifecycle
 from services.matching.model import Execution, LimitOrder, MatchingEngine
 from services.orders.model import CancelOrder, Command, OrderStateMachine, PlaceOrder, SequenceError
+
+
+class LifecycleConsistencyError(ValueError):
+    """Projected lifecycle disagrees with the matching engine's open quantities."""
+
+
+def _verified_lifecycle(orders: OrderStateMachine, matching: MatchingEngine) -> dict[str, OrderLifecycle]:
+    """Project one logical snapshot, comparing independent remaining quantities."""
+    lifecycle = project_lifecycle(orders.history(), matching.executions())
+    for order_id, state in lifecycle.items():
+        if state.remaining != matching.remaining(order_id):
+            raise LifecycleConsistencyError(f"remaining quantity mismatch for {order_id}")
+    return lifecycle
 
 
 class SequencedExchange:
@@ -29,6 +43,8 @@ class SequencedExchange:
             fills = ()
         else:
             raise ValueError("unsupported command")
+        # Validate both independently maintained representations before publishing.
+        _verified_lifecycle(orders, matching)
         self._orders, self._matching = orders, matching
         return fills
 
@@ -40,6 +56,10 @@ class SequencedExchange:
 
     def remaining(self, order_id: str):
         return self._matching.remaining(order_id)
+
+    def lifecycle(self) -> dict[str, OrderLifecycle]:
+        """Return a fresh, verified projection of all committed order states."""
+        return _verified_lifecycle(self._orders, self._matching)
 
     @classmethod
     def replay(cls, commands: Iterable[Command]) -> "SequencedExchange":
