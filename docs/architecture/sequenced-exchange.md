@@ -4,7 +4,10 @@
 price-time matching engine. Each accepted 1-based command is applied to
 **copies** of both in-memory models, then both copies are published together.
 An identical committed retry returns no new executions; a conflicting or
-skipped sequence fails without changing either model. Cancellation of a fully
+skipped sequence fails without changing either model. Even an identical retry
+revalidates the committed execution events and remaining quantities before
+returning an empty fill list; corrupted state raises `LifecycleConsistencyError`
+instead of silently acknowledging the command. Cancellation of a fully
 filled order is rejected and does not consume the command sequence. Replaying
 accepted commands reconstructs the same execution events and open quantities.
 
@@ -43,13 +46,16 @@ Run from the repository root:
 ```sh
 python3 -m unittest discover -s tests -p 'test_sequenced*.py' -v
 python3 -m unittest discover -s tests -p 'test_execution_causality.py' -v
+python3 -m unittest discover -s tests -p 'test_retry_integrity.py' -v
 python3 -m unittest discover -s tests -v
 ```
 
 The integration checks cover deterministic replay, partial/full fills, cancel
 quantities, identical retries, failed cancellation rollback, snapshot isolation,
 and deliberately corrupted matching remaining quantities, event prices,
-execution IDs and maker identities.
+execution IDs and maker identities. Retry integrity checks cover valid
+idempotent place/cancel commands and rejection of retries after deliberate
+execution-price or remaining-quantity corruption.
 
 ## Explicit safety limits
 
