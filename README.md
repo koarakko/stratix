@@ -20,6 +20,6 @@ The sequenced order/matching reference includes an independently verified
 open, partially filled, filled, and cancelled orders. It rejects disagreements
 between the matching engine's remaining amounts and the projected state.
 
-The longer-term goal is a Terraform-based, multi-region AWS architecture with
+A separate [local checksummed command journal](docs/architecture/command-journal.md)\nillustrates append, fsync, retry, and fail-closed corruption detection. It is\nnot yet connected to the matching engine and is not a replicated commit log.\n\nThe longer-term goal is a Terraform-based, multi-region AWS architecture with
 replayable matching, double-entry ledger, recovery testing, and documented
 consistency trade-offs. **None of these aspirations is a production guarantee.**
