@@ -23,7 +23,7 @@ tracked remaining quantity **for every order**, raising
 on copied candidate state **before** publishing a new accepted command; a
 failure does not consume a sequence number or publish new execution events.
 
-In addition to checking aggregate remaining quantities, every accepted command
+Before replay, `services/exchange/invariants.py` independently checks event causality,\nunique execution IDs, maker/taker order sides and markets, finite positive\nquantities and prices, maker-price execution, taker limit, open quantity and\ncancellation ordering. It does not call the matching algorithm and cannot prove\nprice-time priority or that all eligible matches occurred. Violations raise\n`ExecutionInvariantError` and prevent publishing a new command.\n\nIn addition to checking aggregate remaining quantities, every accepted command
 is converted into a matching action and replayed through a fresh MatchingEngine.
 The resulting **ordered execution events** (including IDs, maker/taker IDs,
 market, price and quantity) must match the live engine's events exactly. This
@@ -46,7 +46,7 @@ Run from the repository root:
 ```sh
 python3 -m unittest discover -s tests -p 'test_sequenced*.py' -v
 python3 -m unittest discover -s tests -p 'test_execution_causality.py' -v
-python3 -m unittest discover -s tests -p 'test_retry_integrity.py' -v
+python3 -m unittest discover -s tests -p 'test_retry_integrity.py' -v\npython3 -m unittest discover -s tests -p 'test_execution_invariants.py' -v
 python3 -m unittest discover -s tests -v
 ```
 
