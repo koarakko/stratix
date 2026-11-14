@@ -39,5 +39,42 @@ Run `python3 -m unittest discover -s tests -p 'test_command_log.py' -v`.
 - The journal only validates generic JSON dictionaries. It does not validate
   order economics, reserve funds, or replay commands into the exchange.
 
-Next: define a canonical codec for `PlaceOrder`/`CancelOrder`, then add
-an explicitly recoverable sequenced exchange with fail-closed tests.
+
+## Versioned order command codec and read-only recovery
+
+`services/exchange/journal_codec.py` defines version-1 payloads for
+`PlaceOrder` and `CancelOrder`. Prices and quantities are canonical positive,
+finite decimal **strings** (not JSON floats); unknown versions, extra fields,
+invalid sides, and malformed values fail closed. The journal's envelope stores
+the 1-based sequence separately. Encoding is explicit, and decoding checks
+the entire schema before creating a command.
+
+Example (educational only):
+
+```python
+from decimal import Decimal
+from services.exchange.command_log import CommandJournal
+from services.exchange.journal_codec import encode_command, recover_order_state
+from services.orders.model import Command, PlaceOrder
+
+journal = CommandJournal("/tmp/stratix-orders.journal")
+command = Command(1, PlaceOrder("demo-1", "acct", "BTC-USD", "buy",
+                                Decimal("100"), Decimal("1")))
+journal.append(command.sequence, encode_command(command))
+state = recover_order_state(CommandJournal("/tmp/stratix-orders.journal"))
+assert state.history() == (command,)
+```
+
+`recover_order_state()` re-reads and validates the complete journal, then
+replays all commands into a **new OrderStateMachine**. Invalid order history,
+unknown schema, checksums, or torn records reject recovery; no partial state is
+returned and no file is repaired. It does **not** recover a MatchingEngine or
+the `SequencedExchange`, and does not make journal append and matching atomic.
+A journal record might be persisted without corresponding matching execution;
+do not treat append as accepted trade execution. The order state machine also
+does not track fills.
+
+Run `python3 -m unittest discover -s tests -p 'test_journal_codec.py' -v`.
+
+Next: read-only replay into `SequencedExchange`, followed by explicit
+transactional acknowledgement/recovery semantics and fencing design.
