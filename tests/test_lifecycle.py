@@ -42,7 +42,7 @@ class LifecycleTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             project_lifecycle([place(1, 'a', '2')], [fill('1')])
         with self.assertRaises(ValueError):
-            project_lifecycle([place(1, 'a', '2'), place(2, 'a', '2')], ()
+            project_lifecycle([place(1, 'a', '2'), place(2, 'a', '2')], ())
 
 
 if __name__ == '__main__':
