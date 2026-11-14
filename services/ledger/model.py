@@ -24,6 +24,9 @@ class Posting:
 class DuplicateTransactionError(ValueError):
     """An idempotency key was reused with different journal contents."""
 
+class DuplicateJournalEntryError(ValueError):
+    """A journal stream repeats a transaction ID, so it cannot be trusted."""
+
 
 class Ledger:
     def __init__(self) -> None:
@@ -73,5 +76,9 @@ class Ledger:
     def replay(cls, postings: Iterable[Posting]) -> "Ledger":
         ledger = cls()
         for posting in postings:
+            if posting.transaction_id in ledger._journal:
+                raise DuplicateJournalEntryError(
+                    f"duplicate transaction_id in journal: {posting.transaction_id}"
+                )
             ledger.post(posting.transaction_id, posting.entries)
         return ledger
