@@ -15,7 +15,7 @@ Run from the repository root:
 python3 -m unittest discover -s tests -v
 ```
 
-This component is **not production-safe**: no cancellation, sequence-enforced
+This component is **not production-safe**: no sequence-enforced
 input, persistent log, Raft, leader fencing, risk checks, reserved balances,
 fees, self-trade prevention, trading halts, market precision limits, or ledger
 settlement. A caller must not treat `submit` as durable acceptance. The
@@ -23,5 +23,23 @@ independent `OrderStateMachine` is **not yet wired** to this matcher; in a
 production design only committed sequenced commands should drive execution.
 Execution IDs are local and must not be used as globally durable identifiers.
 
-Next: integrate sequenced order commands with matching and verify deterministic
-replay of fills before connecting double-entry ledger postings.
+## Cancelling resting liquidity
+
+`cancel(order_id)` removes the unfilled remainder of an existing open order
+from the book and returns the removed quantity. It rejects unknown, fully
+filled, and already cancelled orders; rejection does not mutate book state.
+A cancelled order ID cannot be reused. Historical fills are immutable and
+a partially filled order can only cancel its outstanding remainder.
+
+`replay_actions([LimitOrder(...), CancelRequest(order_id), ...])` deterministically
+rebuilds fills and remaining quantities when provided the exact same ordered
+action stream. The original `replay(orders)` remains for place-only streams.
+Neither method provides durable storage or replicated consensus. Cancellation
+is **not** yet connected to the independent order state machine; that model
+still treats partially filled orders as open without tracking filled quantity.
+
+Run the targeted checks with
+`python3 -m unittest discover -s tests -p 'test_matching*.py' -v`.
+
+Next: connect committed, sequenced order commands to matching and test
+replay across placements and cancellations, before adding ledger settlement.
