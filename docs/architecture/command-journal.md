@@ -134,3 +134,19 @@ It does **not** provide an atomic snapshot across other processes, a file lock,
 or leader fencing: a writer may still race after the verification read.
 
 Run `python3 -m unittest discover -s tests -p 'test_journal_snapshot_integrity.py' -v`.
+
+## Injected I/O failure tests
+
+Run `python3 -m unittest discover -s tests -p 'test_journal_io_failure.py' -v`.
+The tests inject short writes, pre-write failures, and `fsync` failures using
+Python mocks. A short write leaves an incomplete tail and recovery refuses it;
+the original instance remains poisoned after any write/fsync failure.
+If `fsync` fails **after** a full write, a later process may observe the
+complete record, but this does **not** prove durability or that the client
+received an acknowledgement. Such an outcome is ambiguous and requires
+application-level reconciliation, not automatic resubmission as a new order.
+A clean pre-write failure permits a fresh instance to retry sequence 1.
+
+These are deterministic fault-injection tests, **not** power-loss, filesystem
+crash-consistency, or distributed failover tests. There is still no replicated
+commit index, leader fencing, or atomic journal/matching transaction.
