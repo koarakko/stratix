@@ -34,3 +34,4 @@ Injected [journal I/O failure tests](tests/test_journal_io_failure.py) cover sho
 The longer-term goal is a Terraform-based, multi-region AWS architecture with
 replayable matching, double-entry ledger, recovery testing, and documented
 consistency trade-offs. **None of these aspirations is a production guarantee.**
+Observed empty-journal deletion is also rejected; see [empty journal deletion tests](tests/test_journal_empty_file_deletion.py). This is not inode fencing or concurrent-writer safety.
