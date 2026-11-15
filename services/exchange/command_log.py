@@ -6,6 +6,8 @@ quorum commitment, and no leader fencing or crash-safe directory sync exists.
 import hashlib
 import json
 import os
+import fcntl
+from contextlib import contextmanager
 from pathlib import Path
 
 
@@ -81,7 +83,22 @@ class CommandJournal:
             raise JournalError("journal changed since initialization")
         return result
 
+    @contextmanager
+    def _writer_lock(self):
+        # Stable sidecar inode avoids locking a journal inode that can be replaced.
+        lock_path = self.path.with_name(self.path.name + ".lock")
+        with lock_path.open("a+b") as handle:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+
     def append(self, sequence: int, payload: dict) -> bool:
+        with self._writer_lock():
+            return self._append_locked(sequence, payload)
+
+    def _append_locked(self, sequence: int, payload: dict) -> bool:
         """Return False for identical retry; reject conflicting/gapped sequences."""
         if self._poisoned:
             raise JournalError("journal is poisoned after an I/O failure")

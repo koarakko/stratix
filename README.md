@@ -39,3 +39,7 @@ Observed empty-journal deletion is also rejected; see [empty journal deletion te
 File identity substitution is detected for an open journal (device/inode checks); see [identity tests](tests/test_journal_inode_identity.py). This is not a multi-writer lock or fencing mechanism.
 
 A [same-inode append race regression](tests/test_journal_append_race.py) rejects external growth detected between validation and write. Size checks narrow one race window but are not locking, fencing, or a TOCTOU guarantee.
+
+Cooperating POSIX writers now serialize journal appends using a persistent
+`<journal>.lock` sidecar; see [lock behavior and limitations](docs/architecture/command-journal.md)
+and [lock tests](tests/test_journal_lock.py). This is not distributed fencing.

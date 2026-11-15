@@ -173,3 +173,18 @@ Run `python3 -m unittest discover -s tests -p 'test_journal_inode_identity.py' -
 Before writing, `append()` compares the opened descriptor and pathname sizes with the byte length verified by `read_all()`. If another writer appends after validation but before `os.open`, the changed size raises `JournalError` and poisons the instance without issuing a local write. The check also applies when the journal is initially absent (expected length zero). A clean append advances the expected length and retains idempotent retries.
 
 This is only a **best-effort fail-closed detection**. A writer can still race after the size checks and before `os.write`, or rewrite equal-length content. It is not mutual exclusion, atomic compare-and-append, leader fencing, or a replacement for a single-writer/quorum design. See `python3 -m unittest discover -s tests -p 'test_journal_append_race.py' -v`.
+
+## Cooperative same-host writer lock
+
+`append()` now holds a POSIX `flock(LOCK_EX)` on a stable `<journal>.lock`
+sidecar file across disk revalidation, sequence/retry checks, append and
+`fsync`. A second cooperating writer blocks, then revalidates and rejects
+stale/conflicting history instead of issuing a duplicate sequence.
+The lock file must not be deleted or replaced while any writer runs.
+
+This is **not** a distributed lock, security boundary, or fencing token:
+non-cooperating writers can ignore `flock`; replacing the sidecar lock file
+can split lock domains; network filesystems may not preserve the required
+semantics. It does not solve read-only snapshot races, power-loss durability,
+Raft quorum, or cross-region split brain. Linux/POSIX only; Windows unsupported.
+Run `python3 -m unittest discover -s tests -p 'test_journal_lock.py' -v`.
