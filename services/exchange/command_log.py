@@ -34,11 +34,19 @@ class CommandJournal:
         self.path = Path(path)
         self._poisoned = False
         self._observed_file = self.path.exists()
+        self._file_identity = None
         self._entries = self.read_all()
 
     def read_all(self) -> tuple[dict, ...]:
         try:
-            raw = self.path.read_bytes()
+            with self.path.open("rb") as handle:
+                identity = (os.fstat(handle.fileno()).st_dev, os.fstat(handle.fileno()).st_ino)
+                if self._file_identity is not None and identity != self._file_identity:
+                    raise JournalError("journal file identity changed")
+                raw = handle.read()
+                current = self.path.stat()
+                if identity != (current.st_dev, current.st_ino):
+                    raise JournalError("journal replaced during read")
         except FileNotFoundError as exc:
             if self._observed_file or getattr(self, "_entries", ()):
                 raise JournalError("previously observed journal is missing") from exc
@@ -46,6 +54,7 @@ class CommandJournal:
         if raw and not raw.endswith(b"\n"):
             raise JournalError("incomplete trailing record; manual recovery required")
         self._observed_file = True
+        self._file_identity = identity
         entries = []
         for line in raw.splitlines():
             try:
@@ -92,16 +101,23 @@ class CommandJournal:
         try:
             fd = os.open(self.path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
             try:
+                opened = os.fstat(fd)
+                if self._file_identity is not None and (opened.st_dev, opened.st_ino) != self._file_identity:
+                    raise JournalError("journal file identity changed before write")
+                current = self.path.stat()
+                if (opened.st_dev, opened.st_ino) != (current.st_dev, current.st_ino):
+                    raise JournalError("journal replaced before write")
                 written = os.write(fd, record)
                 if written != len(record):
                     raise OSError("short journal write")
                 os.fsync(fd)
             finally:
                 os.close(fd)
-        except OSError:
+        except (OSError, JournalError):
             self._poisoned = True
             raise
         self._observed_file = True
+        self._file_identity = (opened.st_dev, opened.st_ino)
         self._entries += ({"sequence": sequence, "payload": payload},)
         return True
 
