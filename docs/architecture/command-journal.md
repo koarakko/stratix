@@ -92,3 +92,34 @@ This is **detection, not locking or fencing**: another writer may change the
 file between verification and `os.open`/`os.write` (TOCTOU). No cross-process
 safety or transactional durability is claimed. Run
 `python3 -m unittest discover -s tests -p 'test_journal_external_mutation.py' -v`.
+
+
+## Read-only exchange reconstruction
+
+`recover_exchange(journal)` in `services/exchange/journal_codec.py` reads and
+validates the complete on-disk journal, decodes the versioned commands, replays
+them through a new `SequencedExchange`, and verifies its lifecycle projection.
+It reconstructs deterministic execution events, order statuses, fills, cancelled
+quantities and open remaining quantities. Empty journals recover to empty state.
+
+```python
+from services.exchange.command_log import CommandJournal
+from services.exchange.journal_codec import recover_exchange
+
+exchange = recover_exchange(CommandJournal("/tmp/stratix-orders.journal"))
+print(exchange.executions(), exchange.lifecycle())
+```
+
+Invalid schema, duplicate order identities, cancellation of filled orders,
+inconsistent replay, and corrupt/truncated records abort recovery without
+returning partial state or modifying the journal. Repeating recovery does not
+acknowledge new orders. The returned in-memory exchange is independent of the
+journal; mutating it does **not** persist commands.
+
+**Safety boundary:** deterministic replay is not crash-safe atomic commitment.
+An fsynced journal command may never have been acknowledged, and a previously
+acknowledged in-memory trade may be absent from the journal. There is no quorum,
+leader fencing, balance reservation, or cross-region consensus. Operators must
+not infer authoritative order acceptance from replay alone.
+
+Run `python3 -m unittest discover -s tests -p 'test_exchange_recovery.py' -v`.
