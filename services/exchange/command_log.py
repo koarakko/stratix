@@ -35,6 +35,7 @@ class CommandJournal:
         self._poisoned = False
         self._observed_file = self.path.exists()
         self._file_identity = None
+        self._verified_size = 0
         self._entries = self.read_all()
 
     def read_all(self) -> tuple[dict, ...]:
@@ -55,6 +56,7 @@ class CommandJournal:
             raise JournalError("incomplete trailing record; manual recovery required")
         self._observed_file = True
         self._file_identity = identity
+        self._verified_size = len(raw)
         entries = []
         for line in raw.splitlines():
             try:
@@ -105,6 +107,8 @@ class CommandJournal:
                 if self._file_identity is not None and (opened.st_dev, opened.st_ino) != self._file_identity:
                     raise JournalError("journal file identity changed before write")
                 current = self.path.stat()
+                if opened.st_size != self._verified_size or current.st_size != self._verified_size:
+                    raise JournalError("journal size changed before write")
                 if (opened.st_dev, opened.st_ino) != (current.st_dev, current.st_ino):
                     raise JournalError("journal replaced before write")
                 written = os.write(fd, record)
@@ -118,6 +122,7 @@ class CommandJournal:
             raise
         self._observed_file = True
         self._file_identity = (opened.st_dev, opened.st_ino)
+        self._verified_size += len(record)
         self._entries += ({"sequence": sequence, "payload": payload},)
         return True
 
