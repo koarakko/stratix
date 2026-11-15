@@ -150,3 +150,14 @@ A clean pre-write failure permits a fresh instance to retry sequence 1.
 These are deterministic fault-injection tests, **not** power-loss, filesystem
 crash-consistency, or distributed failover tests. There is still no replicated
 commit index, leader fencing, or atomic journal/matching transaction.
+
+## Observed empty journal deletion
+
+An empty file that has already been observed is now treated as existing
+history: if it disappears, subsequent `entries()` or `append()` calls
+raise `JournalError` instead of silently recreating it. A path that was
+missing from initialization may still be created by the first append. This
+closes a deletion-detection gap for empty journals but does **not** prevent
+replacement of a file with another valid empty file, inode substitution, or
+concurrent writer races. Run
+`python3 -m unittest discover -s tests -p 'test_journal_empty_file_deletion.py' -v`.
