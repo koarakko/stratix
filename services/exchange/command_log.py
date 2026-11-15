@@ -38,7 +38,9 @@ class CommandJournal:
     def read_all(self) -> tuple[dict, ...]:
         try:
             raw = self.path.read_bytes()
-        except FileNotFoundError:
+        except FileNotFoundError as exc:
+            if getattr(self, "_entries", ()):
+                raise JournalError("previously observed journal is missing") from exc
             return ()
         if raw and not raw.endswith(b"\n"):
             raise JournalError("incomplete trailing record; manual recovery required")
@@ -61,12 +63,17 @@ class CommandJournal:
             except (ValueError, TypeError, UnicodeError, KeyError) as exc:
                 raise JournalError(f"invalid journal record {len(entries) + 1}") from exc
             entries.append(data)
-        return tuple(entries)
+        result = tuple(entries)
+        if hasattr(self, "_entries") and result != self._entries:
+            raise JournalError("journal changed since initialization")
+        return result
 
     def append(self, sequence: int, payload: dict) -> bool:
         """Return False for identical retry; reject conflicting/gapped sequences."""
         if self._poisoned:
             raise JournalError("journal is poisoned after an I/O failure")
+        # Detect external edits before accepting retries or extending the file.
+        self.read_all()
         if type(sequence) is not int or not isinstance(payload, dict):
             raise JournalError("sequence must be int and payload must be dict")
         try:

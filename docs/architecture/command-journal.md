@@ -78,3 +78,17 @@ Run `python3 -m unittest discover -s tests -p 'test_journal_codec.py' -v`.
 
 Next: read-only replay into `SequencedExchange`, followed by explicit
 transactional acknowledgement/recovery semantics and fencing design.
+
+## External file mutation detection
+
+An already-open `CommandJournal` now re-reads disk before each append (including
+idempotent retries), and checks that its observed records have not changed.
+If a previously nonempty journal disappears, becomes empty, or acquires
+externally appended records, it raises `JournalError` rather than accepting
+an acknowledgement or silently recreating a missing history. A newly created
+empty journal path remains supported.
+
+This is **detection, not locking or fencing**: another writer may change the
+file between verification and `os.open`/`os.write` (TOCTOU). No cross-process
+safety or transactional durability is claimed. Run
+`python3 -m unittest discover -s tests -p 'test_journal_external_mutation.py' -v`.
