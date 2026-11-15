@@ -161,3 +161,9 @@ closes a deletion-detection gap for empty journals but does **not** prevent
 replacement of a file with another valid empty file, inode substitution, or
 concurrent writer races. Run
 `python3 -m unittest discover -s tests -p 'test_journal_empty_file_deletion.py' -v`.
+
+## Journal file identity checks
+
+The journal remembers the device/inode of the file it first reads or creates. Each read checks the opened descriptor and path identity; each append checks the opened descriptor before writing. Replacing the path with an otherwise byte-identical file raises `JournalError` for the existing instance. An operator may explicitly reopen a verified replacement file; this is not automatic repair. The checks do not close all TOCTOU races and are **not** locking, cross-process writer exclusion, leader fencing, or a durability guarantee.
+
+Run `python3 -m unittest discover -s tests -p 'test_journal_inode_identity.py' -v`.
