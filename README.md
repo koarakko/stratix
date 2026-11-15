@@ -37,3 +37,5 @@ consistency trade-offs. **None of these aspirations is a production guarantee.**
 Observed empty-journal deletion is also rejected; see [empty journal deletion tests](tests/test_journal_empty_file_deletion.py). This is not inode fencing or concurrent-writer safety.
 
 File identity substitution is detected for an open journal (device/inode checks); see [identity tests](tests/test_journal_inode_identity.py). This is not a multi-writer lock or fencing mechanism.
+
+A [same-inode append race regression](tests/test_journal_append_race.py) rejects external growth detected between validation and write. Size checks narrow one race window but are not locking, fencing, or a TOCTOU guarantee.
