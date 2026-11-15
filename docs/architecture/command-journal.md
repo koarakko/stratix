@@ -167,3 +167,9 @@ concurrent writer races. Run
 The journal remembers the device/inode of the file it first reads or creates. Each read checks the opened descriptor and path identity; each append checks the opened descriptor before writing. Replacing the path with an otherwise byte-identical file raises `JournalError` for the existing instance. An operator may explicitly reopen a verified replacement file; this is not automatic repair. The checks do not close all TOCTOU races and are **not** locking, cross-process writer exclusion, leader fencing, or a durability guarantee.
 
 Run `python3 -m unittest discover -s tests -p 'test_journal_inode_identity.py' -v`.
+
+## Same-inode append race detection
+
+Before writing, `append()` compares the opened descriptor and pathname sizes with the byte length verified by `read_all()`. If another writer appends after validation but before `os.open`, the changed size raises `JournalError` and poisons the instance without issuing a local write. The check also applies when the journal is initially absent (expected length zero). A clean append advances the expected length and retains idempotent retries.
+
+This is only a **best-effort fail-closed detection**. A writer can still race after the size checks and before `os.write`, or rewrite equal-length content. It is not mutual exclusion, atomic compare-and-append, leader fencing, or a replacement for a single-writer/quorum design. See `python3 -m unittest discover -s tests -p 'test_journal_append_race.py' -v`.
