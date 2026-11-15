@@ -90,3 +90,20 @@ def recover_order_state(journal: CommandJournal) -> OrderStateMachine:
         return OrderStateMachine.replay(commands)
     except (ValueError, TypeError, AttributeError) as exc:
         raise CommandCodecError("journal order replay rejected") from exc
+
+
+def recover_exchange(journal: CommandJournal):
+    """Read-only, fail-closed reconstruction of orders, fills and remaining book.
+
+    No journal writes, acknowledgement, quorum commitment or writer fencing.
+    """
+    from services.exchange.sequenced import SequencedExchange
+
+    try:
+        commands = [decode_command(entry["sequence"], entry["payload"])
+                    for entry in journal.read_all()]
+        exchange = SequencedExchange.replay(commands)
+        exchange.lifecycle()  # Verify even the empty snapshot before publishing.
+        return exchange
+    except (ValueError, TypeError, AttributeError, KeyError) as exc:
+        raise CommandCodecError("journal exchange replay rejected") from exc
