@@ -29,6 +29,7 @@ replay the checked journal into a new in-memory order state machine or, using
 and order lifecycles in a new `SequencedExchange`. Recovery is read-only and
 fail-closed; it does not provide atomic matching, consensus, fencing, or
 production durability.
+Injected [journal I/O failure tests](tests/test_journal_io_failure.py) cover short writes, fsync failures and ambiguous recovery; they do not simulate actual power loss.
 
 The longer-term goal is a Terraform-based, multi-region AWS architecture with
 replayable matching, double-entry ledger, recovery testing, and documented
