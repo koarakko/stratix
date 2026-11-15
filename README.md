@@ -24,8 +24,11 @@ A separate [local checksummed command journal](docs/architecture/command-journal
 illustrates append, fsync, retry, and fail-closed corruption detection. It is
 not yet connected to the matching engine and is not a replicated commit log.
 A [versioned order-command codec](services/exchange/journal_codec.py) can
-replay the checked journal into a new in-memory order state machine; it does
-not provide atomic matching, consensus, or production durability.
+replay the checked journal into a new in-memory order state machine or, using
+`recover_exchange()`, reconstruct deterministic fills, remaining quantities,
+and order lifecycles in a new `SequencedExchange`. Recovery is read-only and
+fail-closed; it does not provide atomic matching, consensus, fencing, or
+production durability.
 
 The longer-term goal is a Terraform-based, multi-region AWS architecture with
 replayable matching, double-entry ledger, recovery testing, and documented
