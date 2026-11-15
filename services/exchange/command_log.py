@@ -33,17 +33,19 @@ class CommandJournal:
     def __init__(self, path):
         self.path = Path(path)
         self._poisoned = False
+        self._observed_file = self.path.exists()
         self._entries = self.read_all()
 
     def read_all(self) -> tuple[dict, ...]:
         try:
             raw = self.path.read_bytes()
         except FileNotFoundError as exc:
-            if getattr(self, "_entries", ()):
+            if self._observed_file or getattr(self, "_entries", ()):
                 raise JournalError("previously observed journal is missing") from exc
             return ()
         if raw and not raw.endswith(b"\n"):
             raise JournalError("incomplete trailing record; manual recovery required")
+        self._observed_file = True
         entries = []
         for line in raw.splitlines():
             try:
@@ -99,6 +101,7 @@ class CommandJournal:
         except OSError:
             self._poisoned = True
             raise
+        self._observed_file = True
         self._entries += ({"sequence": sequence, "payload": payload},)
         return True
 
