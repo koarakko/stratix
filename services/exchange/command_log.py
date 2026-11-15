@@ -103,4 +103,5 @@ class CommandJournal:
         return True
 
     def entries(self) -> tuple[dict, ...]:
-        return self._entries
+        """Return only a disk-verified snapshot, never stale cached records."""
+        return self.read_all()

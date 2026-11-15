@@ -21,7 +21,7 @@ open, partially filled, filled, and cancelled orders. It rejects disagreements
 between the matching engine's remaining amounts and the projected state.
 
 A separate [local checksummed command journal](docs/architecture/command-journal.md)
-illustrates append, fsync, retry, and fail-closed corruption detection. It is
+illustrates append, fsync, retry, and fail-closed corruption detection. Its\n`entries()` accessor revalidates the on-disk journal before returning records. It is
 not yet connected to the matching engine and is not a replicated commit log.
 A [versioned order-command codec](services/exchange/journal_codec.py) can
 replay the checked journal into a new in-memory order state machine or, using

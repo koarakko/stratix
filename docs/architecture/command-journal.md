@@ -123,3 +123,14 @@ leader fencing, balance reservation, or cross-region consensus. Operators must
 not infer authoritative order acceptance from replay alone.
 
 Run `python3 -m unittest discover -s tests -p 'test_exchange_recovery.py' -v`.
+
+## Verified snapshot reads
+
+`CommandJournal.entries()` now re-reads and validates the journal on disk
+rather than returning the cached startup snapshot. External append, deletion,
+truncated records and checksum corruption fail closed with `JournalError`.
+This avoids exposing stale cached entries as if they were current disk state.
+It does **not** provide an atomic snapshot across other processes, a file lock,
+or leader fencing: a writer may still race after the verification read.
+
+Run `python3 -m unittest discover -s tests -p 'test_journal_snapshot_integrity.py' -v`.
