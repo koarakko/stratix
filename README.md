@@ -48,3 +48,5 @@ and [lock tests](tests/test_journal_lock.py). This is not distributed fencing.
 Sidecar replacement/deletion during lock acquisition is detected before append;
 see [lock identity tests](tests/test_journal_lock_identity.py). The check is
 not atomic fencing and does not make lock-file replacement safe.
+
+A [POSIX lock-holder termination regression](tests/test_journal_lock_crash.py) verifies that an OS-terminated process releases its advisory lock, leaving previously committed bytes unchanged and allowing a fresh instance to retry or append. It does not simulate a crash during a journal write, guarantee power-loss durability, or provide distributed fencing. Run `python3 -m unittest discover -s tests -p 'test_journal_lock_crash.py' -v`.
