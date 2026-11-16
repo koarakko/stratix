@@ -90,6 +90,13 @@ class CommandJournal:
         with lock_path.open("a+b") as handle:
             fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
             try:
+                locked = os.fstat(handle.fileno())
+                try:
+                    current = lock_path.stat()
+                except FileNotFoundError as exc:
+                    raise JournalError("lock file identity changed") from exc
+                if (locked.st_dev, locked.st_ino) != (current.st_dev, current.st_ino):
+                    raise JournalError("lock file identity changed")
                 yield
             finally:
                 fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
