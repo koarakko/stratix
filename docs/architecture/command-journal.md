@@ -205,3 +205,20 @@ writing a command. This is a best-effort check, **not** atomic fencing: a
 replacement after the identity check can still split the lock domain. Never
 remove or rotate the sidecar while writers are active. Run
 `python3 -m unittest discover -s tests -p 'test_journal_lock_identity.py' -v`.
+
+## Independent-process contention regression
+
+Run `python3 -m unittest discover -s tests -p 'test_journal_process_race.py' -v`.
+Two independently spawned processes initialize the same absent journal, wait
+at a start barrier, and race to append sequence 1. For both distinct and
+identical payloads, only one process commits; the other **fails closed** with
+`JournalError` because its already-open snapshot is stale. A fresh journal
+instance can subsequently identify an identical retry (returning `False`)
+and reject a conflicting payload. Reopening verifies exactly one intact
+record. The test checks worker exit codes and propagates unexpected failures.
+
+These checks exercise cooperating processes on one POSIX host, not hostile
+writers, a shared network filesystem, leader epochs, cross-region fencing,
+power loss, or transactional exchange settlement. A stale instance must be
+reopened only after an explicit recovery decision; the test does not prove
+production-safe automatic retries.
