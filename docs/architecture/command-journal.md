@@ -250,3 +250,10 @@ This is a local POSIX safety check, **not** protection against malicious
 pathname replacement after validation, hard links, non-cooperating writers,
 network-filesystem semantics, or cross-region split brain. Keep the journal
 directory writable only by trusted operators.
+
+## Hard-link lock sidecar rejection
+
+The lock sidecar must be a regular file with exactly one hard link. The writer checks the link count after opening and again while holding the advisory lock. An alias fails closed before journal writes; ordinary sidecars still support append and retry.
+
+Run `python3 -m unittest discover -s tests -p 'test_journal_lock_hardlink.py' -v`.
+This is best-effort local validation, not atomic filesystem fencing: aliases created after the final check and pathname replacement remain possible. There is no cross-host or cross-region guarantee.
