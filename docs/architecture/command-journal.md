@@ -222,3 +222,17 @@ writers, a shared network filesystem, leader epochs, cross-region fencing,
 power loss, or transactional exchange settlement. A stale instance must be
 reopened only after an explicit recovery decision; the test does not prove
 production-safe automatic retries.
+
+## Symlink-safe lock opening
+
+On POSIX platforms exposing `O_NOFOLLOW`, a cooperating writer opens
+`<journal>.lock` with `O_NOFOLLOW | O_CREAT | O_RDWR` before acquiring
+`flock`. Existing or dangling symlinks are rejected before journal writes;
+platforms without `O_NOFOLLOW` fail closed. This prevents accidentally
+following a substituted symlink to another lock domain or unrelated file.
+Run `python3 -m unittest discover -s tests -p 'test_journal_lock_symlink.py' -v`.
+
+This is **not** a hostile-filesystem security boundary: pathname replacement
+after the inode check, hard links, and non-cooperating writers remain outside
+the guarantee. The journal directory and sidecar must be protected against
+untrusted modifications; no cross-host fencing is provided.

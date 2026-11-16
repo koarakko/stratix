@@ -87,7 +87,15 @@ class CommandJournal:
     def _writer_lock(self):
         # Stable sidecar inode avoids locking a journal inode that can be replaced.
         lock_path = self.path.with_name(self.path.name + ".lock")
-        with lock_path.open("a+b") as handle:
+        # Refuse symlinks: following a substituted sidecar can lock an unrelated
+        # inode and can create competing lock domains across cooperating writers.
+        if not hasattr(os, "O_NOFOLLOW"):
+            raise JournalError("symlink-safe sidecar opening is unsupported")
+        try:
+            fd = os.open(lock_path, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+        except OSError as exc:
+            raise JournalError("cannot safely open journal lock file") from exc
+        with os.fdopen(fd, "r+b") as handle:
             fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
             try:
                 locked = os.fstat(handle.fileno())
