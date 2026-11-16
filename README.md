@@ -43,3 +43,7 @@ A [same-inode append race regression](tests/test_journal_append_race.py) rejects
 Cooperating POSIX writers now serialize journal appends using a persistent
 `<journal>.lock` sidecar; see [lock behavior and limitations](docs/architecture/command-journal.md)
 and [lock tests](tests/test_journal_lock.py). This is not distributed fencing.
+
+Sidecar replacement/deletion during lock acquisition is detected before append;
+see [lock identity tests](tests/test_journal_lock_identity.py). The check is
+not atomic fencing and does not make lock-file replacement safe.
