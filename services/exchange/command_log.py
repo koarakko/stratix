@@ -105,10 +105,10 @@ class CommandJournal:
             try:
                 locked = os.fstat(handle.fileno())
                 try:
-                    current = lock_path.stat()
+                    current = lock_path.lstat()
                 except FileNotFoundError as exc:
                     raise JournalError("lock file identity changed") from exc
-                if (locked.st_dev, locked.st_ino) != (current.st_dev, current.st_ino):
+                if not stat.S_ISREG(current.st_mode) or (locked.st_dev, locked.st_ino) != (current.st_dev, current.st_ino):
                     raise JournalError("lock file identity changed")
                 if locked.st_nlink != 1 or current.st_nlink != 1:
                     raise JournalError("journal lock file has multiple hard links")
