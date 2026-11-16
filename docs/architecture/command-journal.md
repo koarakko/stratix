@@ -236,3 +236,17 @@ This is **not** a hostile-filesystem security boundary: pathname replacement
 after the inode check, hard links, and non-cooperating writers remain outside
 the guarantee. The journal directory and sidecar must be protected against
 untrusted modifications; no cross-host fencing is provided.
+
+## Lock sidecar file-type validation
+
+The lock sidecar is opened with `O_NONBLOCK | O_NOFOLLOW`, then checked with
+`fstat` before `flock`. A substituted FIFO cannot hang the writer waiting
+for a peer to open it, and non-regular sidecars are rejected without appending
+journal data. Directories also fail closed. A normal regular sidecar still
+supports append and idempotent retry.
+
+Run `python3 -m unittest discover -s tests -p 'test_journal_lock_file_type.py' -v`.
+This is a local POSIX safety check, **not** protection against malicious
+pathname replacement after validation, hard links, non-cooperating writers,
+network-filesystem semantics, or cross-region split brain. Keep the journal
+directory writable only by trusted operators.
