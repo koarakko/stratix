@@ -28,8 +28,10 @@ Run `python3 -m unittest discover -s tests -p 'test_command_log.py' -v`.
 
 - **Not production safe**: no Raft/quorum, lease/epoch fencing, cross-region
   replication, transactional matching, or guaranteed durable acknowledgement.
-- No concurrent writers or external file modification: multiple processes can
-  race despite `O_APPEND`. No advisory lock, inode checking, or process fencing.
+- Cooperating same-host POSIX writers use a persistent advisory `flock` sidecar
+  and journal/lock inode checks. Non-cooperating writers, lock-file replacement
+  after verification, and external mutation can still race; there is no
+  process fencing, distributed consensus, or cross-region exclusion.
 - Creating a new file does not sync its parent directory. Power-loss durability
   and hardware flush guarantees are platform/filesystem-dependent.
 - A short write can leave a corrupt tail. Recovery requires an explicit
@@ -187,7 +189,9 @@ non-cooperating writers can ignore `flock`; replacing the sidecar lock file
 can split lock domains; network filesystems may not preserve the required
 semantics. It does not solve read-only snapshot races, power-loss durability,
 Raft quorum, or cross-region split brain. Linux/POSIX only; Windows unsupported.
-Run `python3 -m unittest discover -s tests -p 'test_journal_lock.py' -v`.
+The lock regression tests also assert that exceptions raised inside the writer
+thread reach the test via `Future.result()` and verify the holder process exits
+successfully. Run `python3 -m unittest discover -s tests -p 'test_journal_lock.py' -v`.
 
 ## Sidecar replacement detection
 
