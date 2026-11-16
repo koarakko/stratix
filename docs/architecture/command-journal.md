@@ -188,3 +188,13 @@ can split lock domains; network filesystems may not preserve the required
 semantics. It does not solve read-only snapshot races, power-loss durability,
 Raft quorum, or cross-region split brain. Linux/POSIX only; Windows unsupported.
 Run `python3 -m unittest discover -s tests -p 'test_journal_lock.py' -v`.
+
+## Sidecar replacement detection
+
+After acquiring the advisory lock, the writer compares the device/inode of the
+locked descriptor with the sidecar pathname. If the sidecar was deleted or
+replaced during acquisition, append fails closed with `JournalError` before
+writing a command. This is a best-effort check, **not** atomic fencing: a
+replacement after the identity check can still split the lock domain. Never
+remove or rotate the sidecar while writers are active. Run
+`python3 -m unittest discover -s tests -p 'test_journal_lock_identity.py' -v`.
