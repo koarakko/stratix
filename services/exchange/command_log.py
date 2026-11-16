@@ -6,6 +6,7 @@ quorum commitment, and no leader fencing or crash-safe directory sync exists.
 import hashlib
 import json
 import os
+import stat
 import fcntl
 from contextlib import contextmanager
 from pathlib import Path
@@ -92,9 +93,12 @@ class CommandJournal:
         if not hasattr(os, "O_NOFOLLOW"):
             raise JournalError("symlink-safe sidecar opening is unsupported")
         try:
-            fd = os.open(lock_path, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+            fd = os.open(lock_path, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | os.O_NONBLOCK, 0o600)
         except OSError as exc:
             raise JournalError("cannot safely open journal lock file") from exc
+        if not stat.S_ISREG(os.fstat(fd).st_mode):
+            os.close(fd)
+            raise JournalError("journal lock file must be regular")
         with os.fdopen(fd, "r+b") as handle:
             fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
             try:
