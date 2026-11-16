@@ -30,9 +30,10 @@ class JournalLockTests(unittest.TestCase):
     def test_lock_blocks_append_until_released(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / 'journal'
-            ready = multiprocessing.Event()
-            release = multiprocessing.Event()
-            proc = multiprocessing.Process(target=worker, args=(path, ready, release))
+            ctx = multiprocessing.get_context('spawn')
+            ready = ctx.Event()
+            release = ctx.Event()
+            proc = ctx.Process(target=worker, args=(path, ready, release))
             proc.start()
             try:
                 self.assertTrue(ready.wait(5), 'lock holder never acquired lock')
