@@ -191,7 +191,10 @@ semantics. It does not solve read-only snapshot races, power-loss durability,
 Raft quorum, or cross-region split brain. Linux/POSIX only; Windows unsupported.
 The lock regression tests also assert that exceptions raised inside the writer
 thread reach the test via `Future.result()` and verify the holder process exits
-successfully. Run `python3 -m unittest discover -s tests -p 'test_journal_lock.py' -v`.
+successfully. The holder is started with Python's `spawn` context rather than
+forking the multithreaded test runner; this avoids inherited thread/lock state
+and Python 3.12+ fork-in-multithreaded-process warnings. The test remains
+POSIX-only and does not validate distributed fencing. Run `python3 -m unittest discover -s tests -p 'test_journal_lock.py' -v`.
 
 ## Sidecar replacement detection
 
