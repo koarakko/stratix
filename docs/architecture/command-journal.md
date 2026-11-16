@@ -257,3 +257,21 @@ The lock sidecar must be a regular file with exactly one hard link. The writer c
 
 Run `python3 -m unittest discover -s tests -p 'test_journal_lock_hardlink.py' -v`.
 This is best-effort local validation, not atomic filesystem fencing: aliases created after the final check and pathname replacement remain possible. There is no cross-host or cross-region guarantee.
+
+## Post-acquisition symlink substitution
+
+After acquiring `flock`, the writer uses `lstat` (not a symlink-following
+`stat`) to verify the sidecar pathname still names a regular file with the
+same device/inode as the locked descriptor. This rejects a subtle case where
+the sidecar is renamed and replaced with a symlink back to the *same inode*:
+a symlink-following inode comparison would otherwise pass. The journal is not
+appended when this check fails.
+
+Run `python3 -m unittest discover -s tests -p 'test_journal_lock_post_acquire_symlink.py' -v`.
+The test injects the replacement at lock acquisition and checks failure without
+journal creation, plus normal append/retry behavior. This is deterministic
+fault injection, not a real distributed concurrency or crash test.
+
+The check still races with pathname replacement after verification. Directory
+access must be restricted to trusted writers; `flock` is advisory and does
+not provide cross-host fencing, consensus, or split-brain prevention.
