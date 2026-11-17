@@ -148,12 +148,21 @@ class CommandJournal:
             raise JournalError("sequence gap")
         # O_APPEND prevents offset reuse, but NOT multiple-writer coordination.
         try:
-            fd = os.open(self.path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+            if not hasattr(os, "O_NOFOLLOW"):
+                raise JournalError("symlink-safe journal opening is unsupported")
+            try:
+                fd = os.open(self.path, os.O_WRONLY | os.O_CREAT | os.O_APPEND | os.O_NOFOLLOW | os.O_NONBLOCK, 0o600)
+            except OSError as exc:
+                raise JournalError("cannot safely open journal for append") from exc
             try:
                 opened = os.fstat(fd)
+                if not stat.S_ISREG(opened.st_mode):
+                    raise JournalError("journal must be a regular file before write")
                 if self._file_identity is not None and (opened.st_dev, opened.st_ino) != self._file_identity:
                     raise JournalError("journal file identity changed before write")
-                current = self.path.stat()
+                current = self.path.lstat()
+                if not stat.S_ISREG(current.st_mode):
+                    raise JournalError("journal path must be a regular file before write")
                 if opened.st_size != self._verified_size or current.st_size != self._verified_size:
                     raise JournalError("journal size changed before write")
                 if (opened.st_dev, opened.st_ino) != (current.st_dev, current.st_ino):
