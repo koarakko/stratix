@@ -48,14 +48,14 @@ class CommandJournal:
             fd = os.open(self.path, os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW)
             with os.fdopen(fd, "rb") as handle:
                 opened = os.fstat(handle.fileno())
-                if not stat.S_ISREG(opened.st_mode):
-                    raise JournalError("journal must be a regular file")
+                if not stat.S_ISREG(opened.st_mode) or opened.st_nlink != 1:
+                    raise JournalError("journal must be a regular file with one hard link")
                 identity = (opened.st_dev, opened.st_ino)
                 if self._file_identity is not None and identity != self._file_identity:
                     raise JournalError("journal file identity changed")
                 raw = handle.read()
                 current = self.path.lstat()
-                if not stat.S_ISREG(current.st_mode) or identity != (current.st_dev, current.st_ino):
+                if not stat.S_ISREG(current.st_mode) or current.st_nlink != 1 or identity != (current.st_dev, current.st_ino):
                     raise JournalError("journal replaced during read")
         except OSError as exc:
             if not isinstance(exc, FileNotFoundError):
@@ -156,13 +156,13 @@ class CommandJournal:
                 raise JournalError("cannot safely open journal for append") from exc
             try:
                 opened = os.fstat(fd)
-                if not stat.S_ISREG(opened.st_mode):
-                    raise JournalError("journal must be a regular file before write")
+                if not stat.S_ISREG(opened.st_mode) or opened.st_nlink != 1:
+                    raise JournalError("journal must be a regular file with one hard link before write")
                 if self._file_identity is not None and (opened.st_dev, opened.st_ino) != self._file_identity:
                     raise JournalError("journal file identity changed before write")
                 current = self.path.lstat()
-                if not stat.S_ISREG(current.st_mode):
-                    raise JournalError("journal path must be a regular file before write")
+                if not stat.S_ISREG(current.st_mode) or current.st_nlink != 1:
+                    raise JournalError("journal path must be a regular file with one hard link before write")
                 if opened.st_size != self._verified_size or current.st_size != self._verified_size:
                     raise JournalError("journal size changed before write")
                 if (opened.st_dev, opened.st_ino) != (current.st_dev, current.st_ino):

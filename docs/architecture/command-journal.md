@@ -310,3 +310,17 @@ This is **not** an atomic pathname-to-descriptor binding: a hostile actor
 may still replace the pathname after the last `lstat` check. Restrict
 directory access to trusted writers. These checks do not provide consensus,
 distributed fencing, power-loss durability, or production-grade exchange safety.
+
+## Journal hard-link rejection
+
+The journal reader and append path reject files with more than one hard link
+using descriptor `fstat` and pathname `lstat` checks. This prevents an
+accidental alias of the journal inode from being accepted by a cooperating
+process. On append failure, the instance is poisoned; investigate and reopen
+only after resolving the unexpected alias. Ordinary appends, reopen, and
+idempotent retries remain supported.
+
+Run `python3 -m unittest discover -s tests -p 'test_journal_hardlink.py' -v`.
+This is best-effort local POSIX validation, not atomic fencing: a hard link
+can still be created after the last check, and hostile/non-cooperating writers
+remain outside the guarantee. No quorum or power-loss durability is provided.
