@@ -43,15 +43,23 @@ class CommandJournal:
 
     def read_all(self) -> tuple[dict, ...]:
         try:
-            with self.path.open("rb") as handle:
-                identity = (os.fstat(handle.fileno()).st_dev, os.fstat(handle.fileno()).st_ino)
+            if not hasattr(os, "O_NOFOLLOW"):
+                raise JournalError("symlink-safe journal opening is unsupported")
+            fd = os.open(self.path, os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW)
+            with os.fdopen(fd, "rb") as handle:
+                opened = os.fstat(handle.fileno())
+                if not stat.S_ISREG(opened.st_mode):
+                    raise JournalError("journal must be a regular file")
+                identity = (opened.st_dev, opened.st_ino)
                 if self._file_identity is not None and identity != self._file_identity:
                     raise JournalError("journal file identity changed")
                 raw = handle.read()
-                current = self.path.stat()
-                if identity != (current.st_dev, current.st_ino):
+                current = self.path.lstat()
+                if not stat.S_ISREG(current.st_mode) or identity != (current.st_dev, current.st_ino):
                     raise JournalError("journal replaced during read")
-        except FileNotFoundError as exc:
+        except OSError as exc:
+            if not isinstance(exc, FileNotFoundError):
+                raise JournalError("cannot safely open journal") from exc
             if self._observed_file or getattr(self, "_entries", ()):
                 raise JournalError("previously observed journal is missing") from exc
             return ()
