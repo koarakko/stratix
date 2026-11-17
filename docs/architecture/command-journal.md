@@ -275,3 +275,19 @@ fault injection, not a real distributed concurrency or crash test.
 The check still races with pathname replacement after verification. Directory
 access must be restricted to trusted writers; `flock` is advisory and does
 not provide cross-host fencing, consensus, or split-brain prevention.
+
+## Journal read-path type validation
+
+On POSIX systems with `O_NOFOLLOW`, journal reads use
+`O_RDONLY | O_NONBLOCK | O_NOFOLLOW`, check the opened descriptor with
+`fstat`, and compare its device/inode against the regular-file pathname
+using `lstat`. Existing symlinks (including links to valid journals),
+FIFOs and directories are rejected rather than followed or waited on.
+The read path fails closed on platforms without `O_NOFOLLOW`.
+Run `python3 -m unittest discover -s tests -p 'test_journal_read_file_type.py' -v`.
+
+This does **not** harden the append-time journal `os.open` against all
+path substitutions: the read validation and write open are separate operations.
+It is not an atomic filesystem transaction, malicious-writer protection,
+distributed fencing, quorum commitment, or power-loss durability.
+Keep the journal directory restricted to trusted writers.
