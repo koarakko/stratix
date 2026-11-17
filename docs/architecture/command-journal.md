@@ -291,3 +291,22 @@ path substitutions: the read validation and write open are separate operations.
 It is not an atomic filesystem transaction, malicious-writer protection,
 distributed fencing, quorum commitment, or power-loss durability.
 Keep the journal directory restricted to trusted writers.
+
+## Append-path validation
+
+On POSIX systems with `O_NOFOLLOW`, the journal append open now uses
+`O_WRONLY | O_CREAT | O_APPEND | O_NOFOLLOW | O_NONBLOCK`.
+After opening, `fstat` rejects non-regular files and `lstat` verifies
+the pathname remains a regular file with matching device/inode and expected
+size. A symlink or FIFO substituted between the verification read and append
+open fails closed without following the link or blocking on the FIFO.
+Open errors are surfaced as `JournalError` and poison that journal instance;
+an operator must inspect the path before reopening. Identical committed retries
+still return `False`.
+
+Run `python3 -m unittest discover -s tests -p 'test_journal_append_path_type.py' -v`.
+
+This is **not** an atomic pathname-to-descriptor binding: a hostile actor
+may still replace the pathname after the last `lstat` check. Restrict
+directory access to trusted writers. These checks do not provide consensus,
+distributed fencing, power-loss durability, or production-grade exchange safety.
