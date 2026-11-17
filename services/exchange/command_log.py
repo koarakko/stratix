@@ -45,7 +45,12 @@ class CommandJournal:
         try:
             if not hasattr(os, "O_NOFOLLOW"):
                 raise JournalError("symlink-safe journal opening is unsupported")
-            fd = os.open(self.path, os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW)
+            try:
+                fd = os.open(self.path, os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW)
+            except FileNotFoundError as exc:
+                if self._observed_file or getattr(self, "_entries", ()):
+                    raise JournalError("previously observed journal is missing") from exc
+                return ()
             with os.fdopen(fd, "rb") as handle:
                 opened = os.fstat(handle.fileno())
                 if not stat.S_ISREG(opened.st_mode) or opened.st_nlink != 1:
@@ -58,11 +63,7 @@ class CommandJournal:
                 if not stat.S_ISREG(current.st_mode) or current.st_nlink != 1 or identity != (current.st_dev, current.st_ino):
                     raise JournalError("journal replaced during read")
         except OSError as exc:
-            if not isinstance(exc, FileNotFoundError):
-                raise JournalError("cannot safely open journal") from exc
-            if self._observed_file or getattr(self, "_entries", ()):
-                raise JournalError("previously observed journal is missing") from exc
-            return ()
+            raise JournalError("journal read failed after open or unsafe path") from exc
         if raw and not raw.endswith(b"\n"):
             raise JournalError("incomplete trailing record; manual recovery required")
         self._observed_file = True

@@ -50,3 +50,10 @@ see [lock identity tests](tests/test_journal_lock_identity.py). The check is
 not atomic fencing and does not make lock-file replacement safe.
 
 A [POSIX lock-holder termination regression](tests/test_journal_lock_crash.py) verifies that an OS-terminated process releases its advisory lock, leaving previously committed bytes unchanged and allowing a fresh instance to retry or append. It does not simulate a crash during a journal write, guarantee power-loss durability, or provide distributed fencing. Run `python3 -m unittest discover -s tests -p 'test_journal_lock_crash.py' -v`.
+
+Read-time pathname disappearance is fail-closed after a successful open, even
+when the path was absent at initialization. Only an ENOENT from the initial
+open of an unobserved journal is treated as an empty journal. See
+[read-disappearance regression tests](tests/test_journal_read_disappearance.py).
+This narrows a read race; it does not prevent concurrent mutation or provide
+fencing. Run `python3 -m unittest discover -s tests -p 'test_journal_read_disappearance.py' -v`.
