@@ -27,6 +27,26 @@ class JournalLockFailureTests(unittest.TestCase):
                 self.journal.append(1, {"type": "test"})
         self.assertEqual(CommandJournal(self.path).entries(), ())
 
+    def test_fstat_failure_closes_sidecar_descriptor_and_poisoned_instance(self):
+        # Capture the real descriptor, then fail the first stat on the sidecar.
+        # This checks ownership/cleanup rather than merely checking disk bytes.
+        real_fstat = os.fstat
+        descriptors = []
+
+        def injected_fstat(fd):
+            descriptors.append(fd)
+            raise OSError("injected sidecar stat")
+
+        with patch("services.exchange.command_log.os.fstat", side_effect=injected_fstat):
+            with self.assertRaises(JournalError):
+                self.journal.append(1, {"type": "test"})
+        self.assertEqual(len(descriptors), 1)
+        with self.assertRaises(OSError):
+            real_fstat(descriptors[0])
+        with self.assertRaises(JournalError):
+            self.journal.append(1, {"type": "test"})
+        self.assertEqual(CommandJournal(self.path).entries(), ())
+
     def test_lock_acquisition_failure_does_not_append(self):
         with patch("services.exchange.command_log.fcntl.flock", side_effect=OSError("injected lock")):
             with self.assertRaises(JournalError):
