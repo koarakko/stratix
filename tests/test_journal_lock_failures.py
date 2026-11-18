@@ -70,5 +70,27 @@ class JournalLockFailureTests(unittest.TestCase):
             self.journal.append(2, {"type": "second"})
 
 
+    def test_fdopen_failure_closes_sidecar_descriptor_and_poisoned_instance(self):
+        real_fdopen = os.fdopen
+        real_fstat = os.fstat
+        descriptors = []
+
+        def injected_fdopen(fd, *args, **kwargs):
+            if args and args[0] == "r+b":
+                descriptors.append(fd)
+                raise OSError("injected fdopen")
+            return real_fdopen(fd, *args, **kwargs)
+
+        with patch("services.exchange.command_log.os.fdopen", side_effect=injected_fdopen):
+            with self.assertRaises(JournalError):
+                self.journal.append(1, {"type": "test"})
+        self.assertEqual(len(descriptors), 1)
+        with self.assertRaises(OSError):
+            real_fstat(descriptors[0])
+        with self.assertRaises(JournalError):
+            self.journal.append(1, {"type": "test"})
+        self.assertEqual(CommandJournal(self.path).entries(), ())
+
+
 if __name__ == "__main__":
     unittest.main()
