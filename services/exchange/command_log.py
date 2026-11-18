@@ -51,7 +51,16 @@ class CommandJournal:
                 if self._observed_file or getattr(self, "_entries", ()):
                     raise JournalError("previously observed journal is missing") from exc
                 return ()
-            with os.fdopen(fd, "rb") as handle:
+            try:
+                handle = os.fdopen(fd, "rb")
+            except OSError as exc:
+                # fdopen failed before taking ownership of the raw descriptor.
+                try:
+                    os.close(fd)
+                except OSError:
+                    pass
+                raise JournalError("journal read descriptor wrapping failed") from exc
+            with handle:
                 opened = os.fstat(handle.fileno())
                 if not stat.S_ISREG(opened.st_mode) or opened.st_nlink != 1:
                     raise JournalError("journal must be a regular file with one hard link")
