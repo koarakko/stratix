@@ -57,3 +57,9 @@ open of an unobserved journal is treated as an empty journal. See
 [read-disappearance regression tests](tests/test_journal_read_disappearance.py).
 This narrows a read race; it does not prevent concurrent mutation or provide
 fencing. Run `python3 -m unittest discover -s tests -p 'test_journal_read_disappearance.py' -v`.
+
+Advisory lock fault-injection tests also verify that a failed sidecar `fstat`
+closes its file descriptor and poisons the journal instance, preventing an
+unsafe retry. Run `python3 -m unittest discover -s tests -p 'test_journal_lock_failures.py' -v`.
+This is local descriptor cleanup verification, not distributed fencing or
+power-loss durability.
