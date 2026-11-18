@@ -324,3 +324,17 @@ Run `python3 -m unittest discover -s tests -p 'test_journal_hardlink.py' -v`.
 This is best-effort local POSIX validation, not atomic fencing: a hard link
 can still be created after the last check, and hostile/non-cooperating writers
 remain outside the guarantee. No quorum or power-loss durability is provided.
+
+## Advisory lock I/O failure handling
+
+The sidecar file descriptor is owned by a context-managed file object immediately
+after opening, so an injected `fstat` failure cannot leak the descriptor.
+Lock acquisition and release `OSError` failures become `JournalError`.
+A lock failure poisons that journal instance; further appends are rejected.
+If unlock fails after a successful append, the command may already be on disk:
+do **not** blindly retry or issue the next sequence. Reopen and reconcile the
+journal and client acknowledgement state under operator control.
+
+Run `python3 -m unittest discover -s tests -p 'test_journal_lock_failures.py' -v`.
+These are deterministic local fault-injection tests, not actual filesystem
+crashes, cross-host fencing, or evidence of power-loss durability.
