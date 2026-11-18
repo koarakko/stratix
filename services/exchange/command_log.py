@@ -105,29 +105,41 @@ class CommandJournal:
             fd = os.open(lock_path, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | os.O_NONBLOCK, 0o600)
         except OSError as exc:
             raise JournalError("cannot safely open journal lock file") from exc
-        opened = os.fstat(fd)
-        if not stat.S_ISREG(opened.st_mode) or opened.st_nlink != 1:
-            os.close(fd)
-            raise JournalError("journal lock file must be regular with exactly one hard link")
-        with os.fdopen(fd, "r+b") as handle:
-            fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
-            try:
-                locked = os.fstat(handle.fileno())
+        try:
+            with os.fdopen(fd, "r+b") as handle:
                 try:
-                    current = lock_path.lstat()
-                except FileNotFoundError as exc:
-                    raise JournalError("lock file identity changed") from exc
-                if not stat.S_ISREG(current.st_mode) or (locked.st_dev, locked.st_ino) != (current.st_dev, current.st_ino):
-                    raise JournalError("lock file identity changed")
-                if locked.st_nlink != 1 or current.st_nlink != 1:
-                    raise JournalError("journal lock file has multiple hard links")
-                yield
-            finally:
-                fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+                    opened = os.fstat(handle.fileno())
+                    if not stat.S_ISREG(opened.st_mode) or opened.st_nlink != 1:
+                        raise JournalError("journal lock file must be regular with exactly one hard link")
+                    fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+                    try:
+                        locked = os.fstat(handle.fileno())
+                        try:
+                            current = lock_path.lstat()
+                        except FileNotFoundError as exc:
+                            raise JournalError("lock file identity changed") from exc
+                        if not stat.S_ISREG(current.st_mode) or (locked.st_dev, locked.st_ino) != (current.st_dev, current.st_ino):
+                            raise JournalError("lock file identity changed")
+                        if locked.st_nlink != 1 or current.st_nlink != 1:
+                            raise JournalError("journal lock file has multiple hard links")
+                        yield
+                    finally:
+                        fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+                except OSError as exc:
+                    raise JournalError("journal lock operation failed; reconcile before retry") from exc
+        except OSError as exc:
+            raise JournalError("journal lock file close failed; reconcile before retry") from exc
 
     def append(self, sequence: int, payload: dict) -> bool:
-        with self._writer_lock():
-            return self._append_locked(sequence, payload)
+        if self._poisoned:
+            raise JournalError("journal is poisoned after an I/O failure")
+        try:
+            with self._writer_lock():
+                return self._append_locked(sequence, payload)
+        except JournalError as exc:
+            if "journal lock" in str(exc) or "lock file" in str(exc):
+                self._poisoned = True
+            raise
 
     def _append_locked(self, sequence: int, payload: dict) -> bool:
         """Return False for identical retry; reject conflicting/gapped sequences."""
