@@ -106,7 +106,17 @@ class CommandJournal:
         except OSError as exc:
             raise JournalError("cannot safely open journal lock file") from exc
         try:
-            with os.fdopen(fd, "r+b") as handle:
+            try:
+                handle = os.fdopen(fd, "r+b")
+            except OSError as exc:
+                # fdopen did not transfer descriptor ownership on failure.
+                # A leaked descriptor could keep a lock alive unexpectedly.
+                try:
+                    os.close(fd)
+                except OSError:
+                    pass
+                raise JournalError("journal lock file descriptor wrapping failed") from exc
+            with handle:
                 try:
                     opened = os.fstat(handle.fileno())
                     if not stat.S_ISREG(opened.st_mode) or opened.st_nlink != 1:
