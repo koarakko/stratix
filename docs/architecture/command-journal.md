@@ -338,3 +338,14 @@ journal and client acknowledgement state under operator control.
 Run `python3 -m unittest discover -s tests -p 'test_journal_lock_failures.py' -v`.
 These are deterministic local fault-injection tests, not actual filesystem
 crashes, cross-host fencing, or evidence of power-loss durability.
+
+## Sidecar descriptor wrapping failure
+
+If `os.fdopen()` fails while wrapping an opened lock sidecar descriptor,
+the writer explicitly closes the still-owned raw descriptor and raises
+`JournalError`. The instance is poisoned, and subsequent appends are refused
+until a new instance is opened after reconciliation. The fault-injection
+regression checks descriptor closure, absence of a journal write, and retry
+rejection. Run `python3 -m unittest discover -s tests -p 'test_journal_lock_failures.py' -v`.
+This handles a local descriptor ownership failure only; it does not provide
+cross-process fencing, quorum commitment, or crash durability.
