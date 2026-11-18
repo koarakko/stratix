@@ -349,3 +349,16 @@ regression checks descriptor closure, absence of a journal write, and retry
 rejection. Run `python3 -m unittest discover -s tests -p 'test_journal_lock_failures.py' -v`.
 This handles a local descriptor ownership failure only; it does not provide
 cross-process fencing, quorum commitment, or crash durability.
+
+## Read descriptor wrapping failure
+
+If `os.fdopen()` fails after opening a journal for reading, the raw file
+descriptor is explicitly closed before raising `JournalError`. No records
+are returned or modified by that failed read. A subsequent read may be
+attempted after inspecting the underlying I/O failure; the failure alone
+does not prove that journal contents are corrupt or committed.
+
+Run `python3 -m unittest discover -s tests -p 'test_journal_read_fdopen_failure.py' -v`.
+These fault-injection tests verify descriptor cleanup during initialization
+and snapshot reads, plus normal reopen, append, and idempotent retry.
+They do not simulate power loss or provide distributed fencing.
