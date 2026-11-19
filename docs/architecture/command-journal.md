@@ -375,3 +375,18 @@ and restoration of the original bytes, a healthy instance can read again;
 this is not automatic recovery, multi-writer fencing, or a durability guarantee.
 
 Run `python3 -m unittest discover -s tests -p 'test_journal_verified_state.py' -v`.
+
+## Caller-owned payload isolation
+
+After a successful append and fsync, the in-memory committed record is decoded
+from the exact serialized JSON line instead of retaining the caller's mutable
+payload dictionary. Mutating nested dictionaries or lists supplied to append
+therefore cannot change the cached committed history, invalidate a later
+verified read, or turn an identical retry into a false conflict. The original
+committed bytes remain authoritative. The public entries() result is a fresh
+on-disk decoding, not the cached dictionary. This does not provide concurrent
+mutation safety while append is serializing the input: callers must not modify
+a payload concurrently with append. It is not distributed fencing, transactional
+matching, or quorum durability.
+
+Run `python3 -m unittest discover -s tests -p 'test_journal_payload_aliasing.py' -v`.
