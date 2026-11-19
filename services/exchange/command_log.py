@@ -212,7 +212,8 @@ class CommandJournal:
         self._observed_file = True
         self._file_identity = (opened.st_dev, opened.st_ino)
         self._verified_size += len(record)
-        self._entries += ({"sequence": sequence, "payload": payload},)
+        # Cache the serialized committed value, not the caller-owned mutable dict.
+        self._entries += (json.loads(record)["data"],)
         return True
 
     def entries(self) -> tuple[dict, ...]:
