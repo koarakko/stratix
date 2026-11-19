@@ -75,9 +75,6 @@ class CommandJournal:
             raise JournalError("journal read failed after open or unsafe path") from exc
         if raw and not raw.endswith(b"\n"):
             raise JournalError("incomplete trailing record; manual recovery required")
-        self._observed_file = True
-        self._file_identity = identity
-        self._verified_size = len(raw)
         entries = []
         for line in raw.splitlines():
             try:
@@ -100,6 +97,10 @@ class CommandJournal:
         result = tuple(entries)
         if hasattr(self, "_entries") and result != self._entries:
             raise JournalError("journal changed since initialization")
+        # Commit verified metadata only after every record and history check.
+        self._observed_file = True
+        self._file_identity = identity
+        self._verified_size = len(raw)
         return result
 
     @contextmanager
