@@ -362,3 +362,16 @@ Run `python3 -m unittest discover -s tests -p 'test_journal_read_fdopen_failure.
 These fault-injection tests verify descriptor cleanup during initialization
 and snapshot reads, plus normal reopen, append, and idempotent retry.
 They do not simulate power loss or provide distributed fencing.
+
+## Verified read-state commit
+
+`read_all()` now updates its observed-file flag, device/inode identity, and
+verified byte count **only after** all records pass canonical encoding,
+sequence, and checksum validation and the decoded history matches the cached
+history. Failed reads never promote unverified bytes into the trusted snapshot.
+A subsequent append revalidates disk under the cooperating writer lock and
+rejects corrupted or externally extended history. After operator inspection
+and restoration of the original bytes, a healthy instance can read again;
+this is not automatic recovery, multi-writer fencing, or a durability guarantee.
+
+Run `python3 -m unittest discover -s tests -p 'test_journal_verified_state.py' -v`.
