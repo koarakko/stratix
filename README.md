@@ -63,3 +63,5 @@ closes its file descriptor and poisons the journal instance, preventing an
 unsafe retry. Run `python3 -m unittest discover -s tests -p 'test_journal_lock_failures.py' -v`.
 This is local descriptor cleanup verification, not distributed fencing or
 power-loss durability.
+
+Journal verified-state regression: `python3 -m unittest discover -s tests -p 'test_journal_verified_state.py' -v` ensures failed checksum/history verification does not advance trusted file metadata. This remains a local fail-closed check, not leader fencing.
