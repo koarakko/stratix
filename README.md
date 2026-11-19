@@ -65,3 +65,5 @@ This is local descriptor cleanup verification, not distributed fencing or
 power-loss durability.
 
 Journal verified-state regression: `python3 -m unittest discover -s tests -p 'test_journal_verified_state.py' -v` ensures failed checksum/history verification does not advance trusted file metadata. This remains a local fail-closed check, not leader fencing.
+
+Journal payload isolation regression: `python3 -m unittest discover -s tests -p 'test_journal_payload_aliasing.py' -v` verifies that caller-owned nested payload mutations cannot alter committed in-memory history or break idempotent retries. This is not a concurrent-mutation or distributed fencing guarantee.
