@@ -1,5 +1,6 @@
 """In-memory fencing decision gate; not a distributed lease or durable epoch store."""
 from dataclasses import dataclass
+from threading import RLock
 
 
 class FencingError(ValueError):
@@ -31,18 +32,28 @@ class FencingGate:
         self._minimum_epoch = minimum_epoch
         self._highest_epoch = minimum_epoch
         self._leader = None
+        self._lock = RLock()
 
     def install(self, token: LeadershipToken) -> None:
-        if not isinstance(token, LeadershipToken):
-            raise FencingError("invalid leadership token")
-        if token.epoch <= self._highest_epoch:
-            raise FencingError("stale or previously used leadership epoch")
-        self._highest_epoch = token.epoch
-        self._leader = token
+        with self._lock:
+            if not isinstance(token, LeadershipToken):
+                raise FencingError("invalid leadership token")
+            if token.epoch <= self._highest_epoch:
+                raise FencingError("stale or previously used leadership epoch")
+            self._highest_epoch = token.epoch
+            self._leader = token
 
     def authorize(self, token: LeadershipToken) -> None:
-        if not isinstance(token, LeadershipToken) or token != self._leader:
-            raise FencingError("write denied: no matching active leader")
+        with self._lock:
+            if not isinstance(token, LeadershipToken) or token != self._leader:
+                raise FencingError("write denied: no matching active leader")
+
+    def run_authorized(self, token: LeadershipToken, operation, *args, **kwargs):
+        """Serialize local leadership changes with one operation; not distributed fencing."""
+        with self._lock:
+            self.authorize(token)
+            return operation(*args, **kwargs)
 
     def revoke(self) -> None:
-        self._leader = None
+        with self._lock:
+            self._leader = None

@@ -23,3 +23,16 @@ command journal or matching engine. Real fencing requires enforcing epochs
 atomically at the durable write boundary.
 
 Run `python3 -m unittest discover -s tests -p 'test_fencing.py' -v`.
+
+## Local operation serialization
+
+`run_authorized(token, operation, *args, **kwargs)` holds a reentrant
+process-local lock across token validation and the supplied operation. Calls to
+`install()` and `revoke()` on the **same gate instance** wait for the
+operation to finish. Stale/revoked tokens do not invoke the operation; an
+operation exception propagates without changing leadership. The callback must
+not wait for another thread to install/revoke on this gate (deadlock risk).
+This is not storage-level atomic fencing: other processes, replicas, and
+external leadership authorities can change independently. It does not make
+CommandJournal safe for distributed concurrent writers. Run
+`python3 -m unittest discover -s tests -p 'test_fencing_operation.py' -v`.
