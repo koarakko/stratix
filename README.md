@@ -4,7 +4,7 @@ Infrastructure for resilient digital asset exchanges.
 
 > **Educational reference implementation — not production ready.** The trading
 > components currently use in-memory state without persistence, consensus,
-> balance reservation, ledger settlement, or leader fencing. Do not trade real
+> durable balance reservation, durable ledger settlement, or leader fencing. Do not trade real
 > assets or deploy them as a production exchange.
 
 ## Local verification
@@ -91,3 +91,5 @@ An optional [protected-account balance policy](docs/architecture/ledger.md)
 rejects overdrafts atomically within a single Ledger instance, including
 concurrent spends. It is not a balance reservation or durable settlement
 mechanism. Run `python3 -m unittest discover -s tests -p 'test_ledger_protected.py' -v`.
+
+Local [balance reservation, release, and settlement](docs/architecture/ledger.md) are illustrated with [reservation tests](tests/test_ledger_reservations.py). Holds are in-memory only and do not survive restart.
