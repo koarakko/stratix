@@ -84,3 +84,5 @@ Local concurrent leadership-change regressions cover install/revoke waiting for
 an authorized callback, stale callback rejection, and exception cleanup. See
 [threaded gate tests](tests/test_fencing_threading.py). They do not establish
 distributed linearizability or journal-level fencing.
+
+An [in-memory double-entry ledger](docs/architecture/ledger.md) demonstrates per-asset balanced integer postings, transaction-ID idempotency, and same-process concurrent retry serialization. It is not durable, fenced, or connected to matching; negative balances are permitted. Run `python3 -m unittest discover -s tests -p 'test_ledger.py' -v`.
