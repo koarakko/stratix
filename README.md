@@ -79,3 +79,8 @@ fencing or durable journal integration.
 Same-thread callback reentrancy checks prevent an authorized operation from
 replacing/revoking its own gate leader mid-callback. See
 [reentrancy tests](tests/test_fencing_reentrancy.py). This is still local-only.
+
+Local concurrent leadership-change regressions cover install/revoke waiting for
+an authorized callback, stale callback rejection, and exception cleanup. See
+[threaded gate tests](tests/test_fencing_threading.py). They do not establish
+distributed linearizability or journal-level fencing.

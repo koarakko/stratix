@@ -47,3 +47,13 @@ raises. This avoids changing the active epoch halfway through a local write
 callback, but it does **not** prevent distributed leadership changes, make a
 journal append atomic with epoch verification, or protect against process crash.
 Run `python3 -m unittest discover -s tests -p 'test_fencing_reentrancy.py' -v`.
+
+## Threaded leadership-change regression
+
+`tests/test_fencing_threading.py` checks that an in-flight local authorized
+callback holds the gate lock while another thread attempts `install()` or
+`revoke()`. It also checks stale-token callback rejection and cleanup after an
+operation exception. The test uses synchronization events and bounded waits;
+its short non-completion assertion is a local concurrency regression, not a
+formal linearizability proof. No cross-process, crash, or storage fencing is
+provided. Run `python3 -m unittest discover -s tests -p 'test_fencing_threading.py' -v`.
