@@ -27,7 +27,7 @@ assert ledger.balance("bob", "BTC") == 5
 
 Run `python3 -m unittest discover -s tests -p 'test_ledger.py' -v`.
 
-**Limits:** balances may become negative; there is no balance reservation,
+**Limits:** unrestricted balances may become negative; reservations are local-only,
 authorization, fee model, persistence, recovery, consensus, cross-process
 coordination, atomic storage commit, or durable idempotency. Restart discards
 all state. Never use this for real customer balances or settlement.
@@ -49,9 +49,37 @@ ledger.post("spend", [Posting("alice", "BTC", -4), Posting("merchant", "BTC", 4)
 assert ledger.balance("alice", "BTC") == 6
 ```
 
-This is **not** a reservation mechanism: there is no hold/available-balance
-distinction, persistence, distributed concurrency control, or authorization.
+Protected accounts additionally support in-memory holds described below. There is no persistence, distributed concurrency control, or authorization.
 The default constructor remains unrestricted for compatibility. A new Ledger
 instance starts empty, so replay/persistence must be implemented before any
 restart-safe balance enforcement is possible. Run
 `python3 -m unittest discover -s tests -p 'test_ledger_protected.py' -v`.
+
+## Local balance reservations (educational)
+
+For a protected account, `reserve(reservation_id, account, asset, amount)` holds
+a positive integer quantity without changing the booked balance. `available`
+returns booked balance minus active holds. A direct `post` cannot spend held
+funds. `release(id)` cancels a hold; `settle(id, destination)` transfers its
+entire quantity using balanced postings and consumes the hold. Both operations
+are serialized under the Ledger's in-process lock. Exact retries return False;
+conflicting reservation IDs, destination changes, invalid transitions, and
+insufficient funds raise `LedgerError`.
+
+```python
+ledger = Ledger(protected_accounts={"alice"})
+ledger.post("fund", [Posting("issuer", "BTC", -10), Posting("alice", "BTC", 10)])
+ledger.reserve("order-1", "alice", "BTC", 6)
+assert ledger.available("alice", "BTC") == 4
+ledger.settle("order-1", "merchant")
+assert ledger.balance("merchant", "BTC") == 6
+```
+
+Settlement uses the transaction ID `reservation-settle:<id>`; callers must
+not use that namespace for direct posts. A collision rejects settlement and
+restores the hold. Reservation state and holds are **in memory only**, not
+recorded in CommandJournal or the transaction history. Restart loses all holds,
+and there is no partial fill, expiry, distributed fencing, recovery, or
+durable atomicity. The reservation methods require protected source accounts.
+Do not use this for real customer assets. Run
+`python3 -m unittest discover -s tests -p 'test_ledger_reservations.py' -v`.
