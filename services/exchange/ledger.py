@@ -35,6 +35,8 @@ class Ledger:
         self._protected_accounts = accounts
         self._balances = {}
         self._transactions = {}
+        self._reservations = {}
+        self._held = {}
         self._lock = RLock()
 
     def post(self, transaction_id: str, postings) -> bool:
@@ -61,12 +63,85 @@ class Ledger:
             for p in entries:
                 key = (p.account, p.asset)
                 updated[key] = updated.get(key, 0) + p.amount
-            if any(amount < 0 for (account, _), amount in updated.items()
+            if any(amount < self._held.get((account, asset), 0)
+                   for (account, asset), amount in updated.items()
                    if account in self._protected_accounts):
-                raise LedgerError("insufficient balance in protected account")
+                raise LedgerError("insufficient available balance in protected account")
             self._balances = updated
             self._transactions[transaction_id] = entries
             return True
+
+
+    def reserve(self, reservation_id: str, account: str, asset: str, amount: int) -> bool:
+        """Hold available funds without changing booked balance."""
+        if not isinstance(reservation_id, str) or not reservation_id.strip():
+            raise LedgerError("reservation id must be nonempty")
+        if not isinstance(account, str) or not account.strip() or not isinstance(asset, str) or not asset.strip():
+            raise LedgerError("account and asset must be nonempty")
+        if type(amount) is not int or amount <= 0:
+            raise LedgerError("reservation amount must be a positive integer")
+        with self._lock:
+            previous = self._reservations.get(reservation_id)
+            if previous is not None:
+                if previous[:3] == (account, asset, amount):
+                    return False
+                raise LedgerError("conflicting reservation id")
+            if account not in self._protected_accounts:
+                raise LedgerError("reservations require a protected account")
+            key = (account, asset)
+            if self._balances.get(key, 0) - self._held.get(key, 0) < amount:
+                raise LedgerError("insufficient available balance")
+            self._held[key] = self._held.get(key, 0) + amount
+            self._reservations[reservation_id] = (account, asset, amount, 'held', None)
+            return True
+
+    def release(self, reservation_id: str) -> bool:
+        with self._lock:
+            reservation = self._reservations.get(reservation_id)
+            if reservation is None:
+                raise LedgerError("unknown reservation")
+            account, asset, amount, state, destination = reservation
+            if state == 'released':
+                return False
+            if state != 'held':
+                raise LedgerError("reservation already settled")
+            key = (account, asset)
+            self._held[key] -= amount
+            self._reservations[reservation_id] = (account, asset, amount, 'released', None)
+            return True
+
+    def settle(self, reservation_id: str, destination: str) -> bool:
+        if not isinstance(destination, str) or not destination.strip():
+            raise LedgerError("destination must be nonempty")
+        with self._lock:
+            reservation = self._reservations.get(reservation_id)
+            if reservation is None:
+                raise LedgerError("unknown reservation")
+            account, asset, amount, state, previous_destination = reservation
+            if state == 'settled':
+                if previous_destination == destination:
+                    return False
+                raise LedgerError("conflicting settlement destination")
+            if state != 'held':
+                raise LedgerError("reservation already released")
+            if destination == account:
+                raise LedgerError("destination must differ from source")
+            key = (account, asset)
+            self._held[key] -= amount
+            try:
+                if not self.post('reservation-settle:' + reservation_id,
+                                 (Posting(account, asset, -amount), Posting(destination, asset, amount))):
+                    raise LedgerError('settlement transaction id already used')
+            except Exception:
+                self._held[key] += amount
+                raise
+            self._reservations[reservation_id] = (account, asset, amount, 'settled', destination)
+            return True
+
+    def available(self, account: str, asset: str) -> int:
+        with self._lock:
+            key = (account, asset)
+            return self._balances.get(key, 0) - self._held.get(key, 0)
 
     def balance(self, account: str, asset: str) -> int:
         with self._lock:
