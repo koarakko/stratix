@@ -29,15 +29,15 @@ class FencingGate:
         if type(minimum_epoch) is not int or minimum_epoch < 0:
             raise FencingError("minimum epoch must be a nonnegative integer")
         self._minimum_epoch = minimum_epoch
+        self._highest_epoch = minimum_epoch
         self._leader = None
 
     def install(self, token: LeadershipToken) -> None:
         if not isinstance(token, LeadershipToken):
             raise FencingError("invalid leadership token")
-        if token.epoch <= self._minimum_epoch:
-            raise FencingError("epoch not newer than durable high-water mark")
-        if self._leader is not None and token.epoch <= self._leader.epoch:
-            raise FencingError("stale or conflicting leadership epoch")
+        if token.epoch <= self._highest_epoch:
+            raise FencingError("stale or previously used leadership epoch")
+        self._highest_epoch = token.epoch
         self._leader = token
 
     def authorize(self, token: LeadershipToken) -> None:

@@ -51,6 +51,29 @@ class FencingGateTests(unittest.TestCase):
         with self.assertRaises(FencingError):
             FencingGate(True)
 
+    def test_revoked_epoch_cannot_be_reinstalled(self):
+        gate = FencingGate(0)
+        old = LeadershipToken(1, "a")
+        gate.install(old)
+        gate.revoke()
+        for token in (old, LeadershipToken(1, "b")):
+            with self.subTest(token=token), self.assertRaises(FencingError):
+                gate.install(token)
+        with self.assertRaises(FencingError):
+            gate.authorize(old)
+        new = LeadershipToken(2, "b")
+        gate.install(new)
+        gate.authorize(new)
+
+    def test_failed_install_preserves_active_leader(self):
+        gate = FencingGate(3)
+        active = LeadershipToken(5, "a")
+        gate.install(active)
+        for token in (LeadershipToken(4, "b"), LeadershipToken(5, "b")):
+            with self.assertRaises(FencingError):
+                gate.install(token)
+            gate.authorize(active)
+
 
 if __name__ == "__main__":
     unittest.main()
