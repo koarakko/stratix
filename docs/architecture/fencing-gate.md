@@ -36,3 +36,14 @@ This is not storage-level atomic fencing: other processes, replicas, and
 external leadership authorities can change independently. It does not make
 CommandJournal safe for distributed concurrent writers. Run
 `python3 -m unittest discover -s tests -p 'test_fencing_operation.py' -v`.
+
+## Reentrant callback protection
+
+The reentrant lock alone cannot prevent a callback from invoking `install()` or
+`revoke()` on its own gate. While `run_authorized()` is executing, such
+same-thread leadership changes and nested `run_authorized()` calls now fail
+closed with `FencingError`. The operation guard is cleared even when a callback
+raises. This avoids changing the active epoch halfway through a local write
+callback, but it does **not** prevent distributed leadership changes, make a
+journal append atomic with epoch verification, or protect against process crash.
+Run `python3 -m unittest discover -s tests -p 'test_fencing_reentrancy.py' -v`.

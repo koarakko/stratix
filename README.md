@@ -75,3 +75,7 @@ Local gate operation serialization is demonstrated by
 [`test_fencing_operation.py`](tests/test_fencing_operation.py). It only
 serializes leadership changes within one gate instance; it is not distributed
 fencing or durable journal integration.
+
+Same-thread callback reentrancy checks prevent an authorized operation from
+replacing/revoking its own gate leader mid-callback. See
+[reentrancy tests](tests/test_fencing_reentrancy.py). This is still local-only.

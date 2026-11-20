@@ -33,9 +33,12 @@ class FencingGate:
         self._highest_epoch = minimum_epoch
         self._leader = None
         self._lock = RLock()
+        self._operation_active = False
 
     def install(self, token: LeadershipToken) -> None:
         with self._lock:
+            if self._operation_active:
+                raise FencingError("cannot change leadership inside authorized operation")
             if not isinstance(token, LeadershipToken):
                 raise FencingError("invalid leadership token")
             if token.epoch <= self._highest_epoch:
@@ -52,8 +55,16 @@ class FencingGate:
         """Serialize local leadership changes with one operation; not distributed fencing."""
         with self._lock:
             self.authorize(token)
-            return operation(*args, **kwargs)
+            if self._operation_active:
+                raise FencingError("nested authorized operation is forbidden")
+            self._operation_active = True
+            try:
+                return operation(*args, **kwargs)
+            finally:
+                self._operation_active = False
 
     def revoke(self) -> None:
         with self._lock:
+            if self._operation_active:
+                raise FencingError("cannot revoke leadership inside authorized operation")
             self._leader = None
