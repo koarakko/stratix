@@ -57,3 +57,10 @@ operation exception. The test uses synchronization events and bounded waits;
 its short non-completion assertion is a local concurrency regression, not a
 formal linearizability proof. No cross-process, crash, or storage fencing is
 provided. Run `python3 -m unittest discover -s tests -p 'test_fencing_threading.py' -v`.
+
+## Absent-token regression
+
+An uninstalled or revoked gate rejects `None` for both direct `authorize()`
+and `run_authorized()`; no callback is invoked. This is a local fail-closed
+input check, not token authentication or distributed fencing. Run
+`python3 -m unittest discover -s tests -p 'test_fencing_null.py' -v`.
