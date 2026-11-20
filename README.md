@@ -67,3 +67,5 @@ power-loss durability.
 Journal verified-state regression: `python3 -m unittest discover -s tests -p 'test_journal_verified_state.py' -v` ensures failed checksum/history verification does not advance trusted file metadata. This remains a local fail-closed check, not leader fencing.
 
 Journal payload isolation regression: `python3 -m unittest discover -s tests -p 'test_journal_payload_aliasing.py' -v` verifies that caller-owned nested payload mutations cannot alter committed in-memory history or break idempotent retries. This is not a concurrent-mutation or distributed fencing guarantee.
+
+An [in-memory leadership-epoch fencing gate](docs/architecture/fencing-gate.md) demonstrates rejection of stale and conflicting leaders, including restart high-water-mark checks. It is not integrated with storage and provides **no distributed fencing guarantee**. Run `python3 -m unittest discover -s tests -p 'test_fencing.py' -v`.
