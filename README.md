@@ -86,3 +86,8 @@ an authorized callback, stale callback rejection, and exception cleanup. See
 distributed linearizability or journal-level fencing.
 
 An [in-memory double-entry ledger](docs/architecture/ledger.md) demonstrates per-asset balanced integer postings, transaction-ID idempotency, and same-process concurrent retry serialization. It is not durable, fenced, or connected to matching; negative balances are permitted. Run `python3 -m unittest discover -s tests -p 'test_ledger.py' -v`.
+
+An optional [protected-account balance policy](docs/architecture/ledger.md)
+rejects overdrafts atomically within a single Ledger instance, including
+concurrent spends. It is not a balance reservation or durable settlement
+mechanism. Run `python3 -m unittest discover -s tests -p 'test_ledger_protected.py' -v`.

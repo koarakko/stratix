@@ -31,3 +31,27 @@ Run `python3 -m unittest discover -s tests -p 'test_ledger.py' -v`.
 authorization, fee model, persistence, recovery, consensus, cross-process
 coordination, atomic storage commit, or durable idempotency. Restart discards
 all state. Never use this for real customer balances or settlement.
+
+## Optional nonnegative accounts
+
+Construct `Ledger(protected_accounts={"alice", "bob"})` to reject any
+transaction whose **final** balance for those accounts becomes negative in any
+asset. The check runs under the same process-local lock as balance updates and
+transaction-ID recording; a rejected transaction does not consume its ID.
+Multiple postings for one account/asset are netted before the check. Other
+accounts, such as an explicitly modeled issuance/clearing account, can carry
+negative balances. Account protection is fixed at construction time.
+
+```python
+ledger = Ledger(protected_accounts={"alice"})
+ledger.post("fund", [Posting("issuance", "BTC", -10), Posting("alice", "BTC", 10)])
+ledger.post("spend", [Posting("alice", "BTC", -4), Posting("merchant", "BTC", 4)])
+assert ledger.balance("alice", "BTC") == 6
+```
+
+This is **not** a reservation mechanism: there is no hold/available-balance
+distinction, persistence, distributed concurrency control, or authorization.
+The default constructor remains unrestricted for compatibility. A new Ledger
+instance starts empty, so replay/persistence must be implemented before any
+restart-safe balance enforcement is possible. Run
+`python3 -m unittest discover -s tests -p 'test_ledger_protected.py' -v`.

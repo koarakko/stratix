@@ -25,7 +25,14 @@ class Posting:
 class Ledger:
     """Atomic in-process balanced postings, with transaction-id idempotency."""
 
-    def __init__(self):
+    def __init__(self, protected_accounts=()):
+        try:
+            accounts = frozenset(protected_accounts)
+        except TypeError as exc:
+            raise LedgerError("protected_accounts must be iterable and hashable") from exc
+        if any(not isinstance(a, str) or not a.strip() for a in accounts):
+            raise LedgerError("protected_accounts must contain nonempty account names")
+        self._protected_accounts = accounts
         self._balances = {}
         self._transactions = {}
         self._lock = RLock()
@@ -54,6 +61,9 @@ class Ledger:
             for p in entries:
                 key = (p.account, p.asset)
                 updated[key] = updated.get(key, 0) + p.amount
+            if any(amount < 0 for (account, _), amount in updated.items()
+                   if account in self._protected_accounts):
+                raise LedgerError("insufficient balance in protected account")
             self._balances = updated
             self._transactions[transaction_id] = entries
             return True
