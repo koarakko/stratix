@@ -89,6 +89,8 @@ class Ledger:
         with self._lock:
             previous = self._reservations.get(reservation_id)
             if previous is not None:
+                if previous[3] != 'held':
+                    raise LedgerError("reservation is no longer an untouched hold")
                 if previous[:3] == (account, asset, amount):
                     return False
                 raise LedgerError("conflicting reservation id")
