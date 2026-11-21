@@ -93,3 +93,7 @@ concurrent spends. It is not a balance reservation or durable settlement
 mechanism. Run `python3 -m unittest discover -s tests -p 'test_ledger_protected.py' -v`.
 
 Local [balance reservation, release, and settlement](docs/architecture/ledger.md) are illustrated with [reservation tests](tests/test_ledger_reservations.py). Holds are in-memory only and do not survive restart.
+
+Partial fill settlement keeps unfilled funds reserved and deduplicates fill IDs
+within one process; see [partial fill tests](tests/test_ledger_partial.py).
+This does not provide restart-safe settlement or distributed fencing.

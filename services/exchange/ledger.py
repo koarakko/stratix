@@ -37,6 +37,7 @@ class Ledger:
         self._transactions = {}
         self._reservations = {}
         self._held = {}
+        self._fills = {}
         self._lock = RLock()
 
     def post(self, transaction_id: str, postings) -> bool:
@@ -103,7 +104,7 @@ class Ledger:
             account, asset, amount, state, destination = reservation
             if state == 'released':
                 return False
-            if state != 'held':
+            if state not in ('held', 'partial'):
                 raise LedgerError("reservation already settled")
             key = (account, asset)
             self._held[key] -= amount
@@ -123,7 +124,7 @@ class Ledger:
                     return False
                 raise LedgerError("conflicting settlement destination")
             if state != 'held':
-                raise LedgerError("reservation already released")
+                raise LedgerError("reservation is not an untouched hold")
             if destination == account:
                 raise LedgerError("destination must differ from source")
             key = (account, asset)
@@ -136,6 +137,49 @@ class Ledger:
                 self._held[key] += amount
                 raise
             self._reservations[reservation_id] = (account, asset, amount, 'settled', destination)
+            return True
+
+    def settle_partial(self, reservation_id: str, destination: str, amount: int, fill_id: str) -> bool:
+        """Settle a uniquely identified partial fill; keep the unfilled balance held."""
+        if not isinstance(fill_id, str) or not fill_id.strip():
+            raise LedgerError("fill id must be nonempty")
+        if not isinstance(destination, str) or not destination.strip():
+            raise LedgerError("destination must be nonempty")
+        if type(amount) is not int or amount <= 0:
+            raise LedgerError("fill amount must be a positive integer")
+        with self._lock:
+            previous = self._fills.get(fill_id)
+            request = (reservation_id, destination, amount)
+            if previous is not None:
+                if previous == request:
+                    return False
+                raise LedgerError("conflicting fill id")
+            reservation = self._reservations.get(reservation_id)
+            if reservation is None:
+                raise LedgerError("unknown reservation")
+            account, asset, remaining, state, _ = reservation
+            if state not in ('held', 'partial'):
+                raise LedgerError("reservation is closed")
+            if destination == account:
+                raise LedgerError("destination must differ from source")
+            if amount > remaining:
+                raise LedgerError("fill exceeds remaining reservation")
+            key = (account, asset)
+            self._held[key] -= amount
+            try:
+                applied = self.post('reservation-fill:' + fill_id,
+                                    (Posting(account, asset, -amount),
+                                     Posting(destination, asset, amount)))
+                if not applied:
+                    raise LedgerError("fill transaction id already used")
+            except Exception:
+                self._held[key] += amount
+                raise
+            left = remaining - amount
+            self._reservations[reservation_id] = (account, asset, left,
+                                                   'settled' if left == 0 else 'partial',
+                                                   destination if left == 0 else None)
+            self._fills[fill_id] = request
             return True
 
     def available(self, account: str, asset: str) -> int:

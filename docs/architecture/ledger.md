@@ -83,3 +83,25 @@ and there is no partial fill, expiry, distributed fencing, recovery, or
 durable atomicity. The reservation methods require protected source accounts.
 Do not use this for real customer assets. Run
 `python3 -m unittest discover -s tests -p 'test_ledger_reservations.py' -v`.
+
+## Partial fills (in-process only)
+
+`settle_partial(reservation_id, destination, amount, fill_id)` debits only the
+specified positive integer amount and retains the remaining reservation hold.
+Each fill ID is unique across the Ledger: an identical retry returns False,
+while a conflicting retry fails without changing balances. Overfills and
+settlement after release are rejected. `release(id)` after partial fills
+releases only the unfilled remainder. The original `settle(id, destination)`
+only works on untouched holds; after a partial fill it rejects the request.
+
+```python
+ledger.reserve("order-2", "alice", "BTC", 5)
+ledger.settle_partial("order-2", "merchant", 2, "trade-1")
+ledger.release("order-2")  # releases remaining 3
+```
+
+Fill transactions use `reservation-fill:<fill_id>`. Direct `post()` calls
+must not use this namespace. Collisions fail closed and restore the hold.
+Neither fill IDs nor reservation state survive restart; no storage-level
+atomicity, distributed fencing, or cross-process exactly-once semantics exist.
+Run `python3 -m unittest discover -s tests -p 'test_ledger_partial.py' -v`.
