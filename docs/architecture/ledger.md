@@ -148,3 +148,23 @@ a durable replay or reconciliation mechanism. Run
 Multi-asset reconciliation regression tests cover balanced BTC/ETH transfers,
 per-asset imbalance, expected-balance asset mismatches, and input immutability.
 Run `python3 -m unittest discover -s tests -p 'test_ledger_audit_multiasset.py' -v`.
+
+## Ledger-to-audit integration regression
+
+The integration suite uses the actual `Ledger`, `Posting`, and
+`audit_transactions` implementations, not mocks. It verifies reconciliation
+after reserve, partial fill, release, full settlement, idempotent retry,
+rejected overfill, and concurrent fill-ID retries. It also tests malformed
+postings and missing transactions against independently supplied expected
+balances. Run:
+
+```sh
+python3 -m unittest discover -s tests -p 'test_ledger_audit_integration.py' -v
+```
+
+**Important:** Holds and release events do not appear in `transactions()`.
+Reconciliation of booked balances therefore cannot detect an incorrect hold
+or prove that a snapshot is complete. The expected balances in these tests
+are read separately from the same in-memory Ledger, not an independent durable
+source of truth. This is a regression test, not production reconciliation,
+crash recovery, or split-brain protection.
