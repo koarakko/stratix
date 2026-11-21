@@ -2,105 +2,100 @@
 
 Infrastructure for resilient digital asset exchanges.
 
-> **Educational reference implementation — not production ready.** The trading
-> components currently use in-memory state without persistence, consensus,
-> durable balance reservation, durable ledger settlement, or leader fencing. Do not trade real
-> assets or deploy them as a production exchange.
+> **Educational reference implementation — not production ready.**
+> The trading components currently use in-memory state without persistence, consensus, durable balance reservation, durable ledger settlement, or leader fencing. Do not trade real assets or deploy them as a production exchange.
 
-## Local verification
+---
 
-Use Python 3.10+ from the repository root; no AWS account is required:
+## Local Verification
+
+Requires **Python 3.10+** (no AWS account needed). Run the full test suite from the repository root:
 
 ```sh
 python3 -m unittest discover -s tests -v
 ```
 
-The sequenced order/matching reference includes an independently verified
-[lifecycle projection](docs/architecture/sequenced-exchange.md) that covers
-open, partially filled, filled, and cancelled orders. It rejects disagreements
-between the matching engine's remaining amounts and the projected state.
+---
 
-A separate [local checksummed command journal](docs/architecture/command-journal.md)
-illustrates append, fsync, retry, and fail-closed corruption detection. Its
-`entries()` accessor revalidates the on-disk journal before returning records. It is
-not yet connected to the matching engine and is not a replicated commit log.
-A [versioned order-command codec](services/exchange/journal_codec.py) can
-replay the checked journal into a new in-memory order state machine or, using
-`recover_exchange()`, reconstruct deterministic fills, remaining quantities,
-and order lifecycles in a new `SequencedExchange`. Recovery is read-only and
-fail-closed; it does not provide atomic matching, consensus, fencing, or
-production durability.
-Injected [journal I/O failure tests](tests/test_journal_io_failure.py) cover short writes, fsync failures and ambiguous recovery; they do not simulate actual power loss.
+## Reference Components
 
-The longer-term goal is a Terraform-based, multi-region AWS architecture with
-replayable matching, double-entry ledger, recovery testing, and documented
-consistency trade-offs. **None of these aspirations is a production guarantee.**
-Observed empty-journal deletion is also rejected; see [empty journal deletion tests](tests/test_journal_empty_file_deletion.py). This is not inode fencing or concurrent-writer safety.
+### 1. Sequenced Exchange & Order Lifecycle
 
-File identity substitution is detected for an open journal (device/inode checks); see [identity tests](tests/test_journal_inode_identity.py). This is not a multi-writer lock or fencing mechanism.
+The sequenced order/matching reference includes an independently verified [lifecycle projection](docs/architecture/sequenced-exchange.md) covering `open`, `partially filled`, `filled`, and `cancelled` orders. It fails closed on any disagreement between the matching engine's remaining amounts and the projected state.
 
-A [same-inode append race regression](tests/test_journal_append_race.py) rejects external growth detected between validation and write. Size checks narrow one race window but are not locking, fencing, or a TOCTOU guarantee.
+### 2. Command Journal & Recovery
 
-Cooperating POSIX writers now serialize journal appends using a persistent
-`<journal>.lock` sidecar; see [lock behavior and limitations](docs/architecture/command-journal.md)
-and [lock tests](tests/test_journal_lock.py). This is not distributed fencing.
+A standalone [local checksummed command journal](docs/architecture/command-journal.md) illustrates append, `fsync`, idempotent retry, and fail-closed corruption detection. Its `entries()` accessor revalidates the on-disk journal before returning records.
 
-Sidecar replacement/deletion during lock acquisition is detected before append;
-see [lock identity tests](tests/test_journal_lock_identity.py). The check is
-not atomic fencing and does not make lock-file replacement safe.
+- **Replay & Recovery**: A [versioned order-command codec](services/exchange/journal_codec.py) replays a verified journal into a new in-memory order state machine or, via `recover_exchange()`, reconstructs deterministic fills, remaining quantities, and order lifecycles in a new `SequencedExchange`. Recovery is read-only and fail-closed.
+- **Cooperative POSIX Locking**: Appends serialize across cooperating POSIX writers using a persistent `<journal>.lock` sidecar (`flock`).
+- **Scope & Limitations**: Not yet connected to the live matching engine, not a replicated commit log, and provides no atomic matching, consensus, power-loss durability guarantee, or distributed fencing.
 
-A [POSIX lock-holder termination regression](tests/test_journal_lock_crash.py) verifies that an OS-terminated process releases its advisory lock, leaving previously committed bytes unchanged and allowing a fresh instance to retry or append. It does not simulate a crash during a journal write, guarantee power-loss durability, or provide distributed fencing. Run `python3 -m unittest discover -s tests -p 'test_journal_lock_crash.py' -v`.
+<details>
+<summary>Command Journal Regression & Fault-Injection Tests</summary>
 
-Read-time pathname disappearance is fail-closed after a successful open, even
-when the path was absent at initialization. Only an ENOENT from the initial
-open of an unobserved journal is treated as an empty journal. See
-[read-disappearance regression tests](tests/test_journal_read_disappearance.py).
-This narrows a read race; it does not prevent concurrent mutation or provide
-fencing. Run `python3 -m unittest discover -s tests -p 'test_journal_read_disappearance.py' -v`.
+| Focus | Description | Test File | Run Command |
+| :--- | :--- | :--- | :--- |
+| I/O failures | Short writes, `fsync` failures, and ambiguous recovery (does not simulate actual power loss) | [`test_journal_io_failure.py`](tests/test_journal_io_failure.py) | `python3 -m unittest discover -s tests -p 'test_journal_io_failure.py' -v` |
+| Empty-journal deletion | Rejects deletion of an observed empty journal (not inode fencing or concurrent-writer safety) | [`test_journal_empty_file_deletion.py`](tests/test_journal_empty_file_deletion.py) | `python3 -m unittest discover -s tests -p 'test_journal_empty_file_deletion.py' -v` |
+| File identity | Detects device/inode substitution for an open journal (not a multi-writer lock or fencing) | [`test_journal_inode_identity.py`](tests/test_journal_inode_identity.py) | `python3 -m unittest discover -s tests -p 'test_journal_inode_identity.py' -v` |
+| Same-inode append race | Rejects external growth detected between validation and write (narrows race window; not TOCTOU proof) | [`test_journal_append_race.py`](tests/test_journal_append_race.py) | `python3 -m unittest discover -s tests -p 'test_journal_append_race.py' -v` |
+| Sidecar locking | Serializes cooperating POSIX writers via `<journal>.lock` (not distributed fencing) | [`test_journal_lock.py`](tests/test_journal_lock.py) | `python3 -m unittest discover -s tests -p 'test_journal_lock.py' -v` |
+| Lock identity | Detects sidecar replacement/deletion during lock acquisition before append | [`test_journal_lock_identity.py`](tests/test_journal_lock_identity.py) | `python3 -m unittest discover -s tests -p 'test_journal_lock_identity.py' -v` |
+| Lock-holder termination | Verifies OS-terminated process releases advisory lock with committed bytes intact | [`test_journal_lock_crash.py`](tests/test_journal_lock_crash.py) | `python3 -m unittest discover -s tests -p 'test_journal_lock_crash.py' -v` |
+| Read disappearance | Fails closed if pathname disappears after open (only initial `ENOENT` on unobserved journal is empty) | [`test_journal_read_disappearance.py`](tests/test_journal_read_disappearance.py) | `python3 -m unittest discover -s tests -p 'test_journal_read_disappearance.py' -v` |
+| Lock descriptor cleanup | Failed sidecar `fstat` closes its descriptor and poisons the instance against unsafe retries | [`test_journal_lock_failures.py`](tests/test_journal_lock_failures.py) | `python3 -m unittest discover -s tests -p 'test_journal_lock_failures.py' -v` |
+| Verified state | Ensures failed checksum/history verification does not advance trusted file metadata | [`test_journal_verified_state.py`](tests/test_journal_verified_state.py) | `python3 -m unittest discover -s tests -p 'test_journal_verified_state.py' -v` |
+| Payload isolation | Verifies caller-owned nested payload mutations cannot alter committed history or break retries | [`test_journal_payload_aliasing.py`](tests/test_journal_payload_aliasing.py) | `python3 -m unittest discover -s tests -p 'test_journal_payload_aliasing.py' -v` |
 
-Advisory lock fault-injection tests also verify that a failed sidecar `fstat`
-closes its file descriptor and poisons the journal instance, preventing an
-unsafe retry. Run `python3 -m unittest discover -s tests -p 'test_journal_lock_failures.py' -v`.
-This is local descriptor cleanup verification, not distributed fencing or
-power-loss durability.
+</details>
 
-Journal verified-state regression: `python3 -m unittest discover -s tests -p 'test_journal_verified_state.py' -v` ensures failed checksum/history verification does not advance trusted file metadata. This remains a local fail-closed check, not leader fencing.
+### 3. Leadership Fencing Gate
 
-Journal payload isolation regression: `python3 -m unittest discover -s tests -p 'test_journal_payload_aliasing.py' -v` verifies that caller-owned nested payload mutations cannot alter committed in-memory history or break idempotent retries. This is not a concurrent-mutation or distributed fencing guarantee.
+An [in-memory leadership-epoch fencing gate](docs/architecture/fencing-gate.md) demonstrates rejection of stale and conflicting leaders, including restart high-water-mark checks.
 
-An [in-memory leadership-epoch fencing gate](docs/architecture/fencing-gate.md) demonstrates rejection of stale and conflicting leaders, including restart high-water-mark checks. It is not integrated with storage and provides **no distributed fencing guarantee**. Run `python3 -m unittest discover -s tests -p 'test_fencing.py' -v`.
+- **Local Serialization**: `run_authorized` serializes leadership changes (`install` / `revoke`) within a single gate instance.
+- **Reentrancy Protection**: Same-thread callback reentrancy checks prevent an authorized operation from replacing or revoking its own gate leader mid-callback.
+- **Scope & Limitations**: Not integrated with storage or the command journal; provides **no distributed fencing or linearizability guarantee**.
 
-Local gate operation serialization is demonstrated by
-[`run_authorized`](docs/architecture/fencing-gate.md) and
-[`test_fencing_operation.py`](tests/test_fencing_operation.py). It only
-serializes leadership changes within one gate instance; it is not distributed
-fencing or durable journal integration.
+| Focus | Description | Test File | Run Command |
+| :--- | :--- | :--- | :--- |
+| Epoch & high-water mark | Rejects stale and conflicting leaders | [`test_fencing.py`](tests/test_fencing.py) | `python3 -m unittest discover -s tests -p 'test_fencing.py' -v` |
+| Operation serialization | Serializes local leadership changes with `run_authorized` | [`test_fencing_operation.py`](tests/test_fencing_operation.py) | `python3 -m unittest discover -s tests -p 'test_fencing_operation.py' -v` |
+| Callback reentrancy | Blocks mid-callback `install()` / `revoke()` and nested calls | [`test_fencing_reentrancy.py`](tests/test_fencing_reentrancy.py) | `python3 -m unittest discover -s tests -p 'test_fencing_reentrancy.py' -v` |
+| Threaded leadership | Verifies in-flight callback locking, stale rejection, and cleanup | [`test_fencing_threading.py`](tests/test_fencing_threading.py) | `python3 -m unittest discover -s tests -p 'test_fencing_threading.py' -v` |
 
-Same-thread callback reentrancy checks prevent an authorized operation from
-replacing/revoking its own gate leader mid-callback. See
-[reentrancy tests](tests/test_fencing_reentrancy.py). This is still local-only.
+### 4. In-Memory Double-Entry Ledger
 
-Local concurrent leadership-change regressions cover install/revoke waiting for
-an authorized callback, stale callback rejection, and exception cleanup. See
-[threaded gate tests](tests/test_fencing_threading.py). They do not establish
-distributed linearizability or journal-level fencing.
+An [in-memory double-entry ledger](docs/architecture/ledger.md) demonstrates per-asset balanced integer postings, transaction-ID idempotency, and same-process concurrent retry serialization.
 
-An [in-memory double-entry ledger](docs/architecture/ledger.md) demonstrates per-asset balanced integer postings, transaction-ID idempotency, and same-process concurrent retry serialization. It is not durable, fenced, or connected to matching; negative balances are permitted. Run `python3 -m unittest discover -s tests -p 'test_ledger.py' -v`.
+- **Protected Accounts**: Optional `protected_accounts` configuration rejects overdrafts atomically within a single `Ledger` instance (including concurrent spends).
+- **Reservations & Partial Fills**: Supports local balance holds (`reserve`, `release`, `settle`, and `settle_partial`). Partial fills keep unfilled funds reserved and deduplicate fill IDs within one process.
+- **Settlement Modes & Namespace Guard**: Full consumption by partial fills is distinct from a full-settlement retry (`settle()` rejects reservations already completed through fills). Direct `post()` calls reject reserved `reservation-settle:` and `reservation-fill:` transaction IDs.
+- **Scope & Limitations**: In-memory only and not connected to matching; does not survive restart and provides no durable settlement, authorization, or distributed fencing.
 
-An optional [protected-account balance policy](docs/architecture/ledger.md)
-rejects overdrafts atomically within a single Ledger instance, including
-concurrent spends. It is not a balance reservation or durable settlement
-mechanism. Run `python3 -m unittest discover -s tests -p 'test_ledger_protected.py' -v`.
+| Focus | Description | Test File | Run Command |
+| :--- | :--- | :--- | :--- |
+| Core postings | Balanced integer postings, idempotency, and retry serialization | [`test_ledger.py`](tests/test_ledger.py) | `python3 -m unittest discover -s tests -p 'test_ledger.py' -v` |
+| Overdraft policy | Atomic overdraft rejection for `protected_accounts` | [`test_ledger_protected.py`](tests/test_ledger_protected.py) | `python3 -m unittest discover -s tests -p 'test_ledger_protected.py' -v` |
+| Reservations | Local balance reservation, release, and settlement | [`test_ledger_reservations.py`](tests/test_ledger_reservations.py) | `python3 -m unittest discover -s tests -p 'test_ledger_reservations.py' -v` |
+| Partial fills | Idempotent partial reservation settlement and fill-ID deduplication | [`test_ledger_partial.py`](tests/test_ledger_partial.py) | `python3 -m unittest discover -s tests -p 'test_ledger_partial.py' -v` |
+| Namespace guard | Rejects reserved `reservation-settle:` / `reservation-fill:` IDs in `post()` | [`test_ledger_namespace.py`](tests/test_ledger_namespace.py) | `python3 -m unittest discover -s tests -p 'test_ledger_namespace.py' -v` |
+| Settlement modes | Distinguishes partial-fill completion from full-settlement retries | [`test_ledger_settlement_modes.py`](tests/test_ledger_settlement_modes.py) | `python3 -m unittest discover -s tests -p 'test_ledger_settlement_modes.py' -v` |
 
-Local [balance reservation, release, and settlement](docs/architecture/ledger.md) are illustrated with [reservation tests](tests/test_ledger_reservations.py). Holds are in-memory only and do not survive restart.
+---
 
-Partial fill settlement keeps unfilled funds reserved and deduplicates fill IDs
-within one process; see [partial fill tests](tests/test_ledger_partial.py).
-This does not provide restart-safe settlement or distributed fencing.
+## Documentation
 
-Direct Ledger posts now reject reserved `reservation-settle:` and `reservation-fill:` transaction IDs, so callers cannot preempt internal settlement IDs. See [namespace regression tests](tests/test_ledger_namespace.py). This is an in-process API guard, not durable settlement or authorization.
+- [Architecture Overview](docs/architecture/overview.md)
+- [Sequenced Exchange](docs/architecture/sequenced-exchange.md)
+- [Command Journal](docs/architecture/command-journal.md)
+- [Fencing Gate](docs/architecture/fencing-gate.md)
+- [Double-Entry Ledger](docs/architecture/ledger.md)
+- [ADR 0001: Consistency Before Availability](docs/adr/0001-consistency-before-availability.md)
 
-Full consumption by partial fills is distinct from a full-settlement retry:
-`settle()` rejects a reservation already completed through fills. See
-[settlement-mode tests](tests/test_ledger_settlement_modes.py). This check is
-in-memory only and provides no durable exactly-once guarantee.
+---
+
+## Long-Term Goal
+
+The longer-term goal is a Terraform-based, multi-region AWS architecture with replayable matching, a double-entry ledger, recovery testing, and documented consistency trade-offs. **None of these aspirations is a production guarantee.**
