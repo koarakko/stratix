@@ -111,3 +111,14 @@ atomicity, distributed fencing, or cross-process exactly-once semantics exist.
 Run `python3 -m unittest discover -s tests -p 'test_ledger_partial.py' -v`.
 
 Run `python3 -m unittest discover -s tests -p 'test_ledger_namespace.py' -v` for namespace, retry and concurrency regressions. This does not provide durable exactly-once settlement.
+
+## Settlement completion mode
+
+A reservation exhausted through `settle_partial()` is closed, but is **not** an
+idempotent retry of `settle()`. Calling `settle()` after full consumption by
+fills raises `LedgerError` even when the destination matches. Only a prior
+successful full `settle()` permits an identical full-settlement retry to return
+False. Existing fill IDs remain idempotent after closure. The decision is based
+on the internally recorded `reservation-settle:<id>` transaction and remains
+process-local; neither this history nor holds survive restart.
+Run `python3 -m unittest discover -s tests -p 'test_ledger_settlement_modes.py' -v`.
