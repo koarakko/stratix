@@ -73,7 +73,8 @@ An [in-memory double-entry ledger](docs/architecture/ledger.md) demonstrates per
 - **Reservation retry safety**: Only untouched active holds accept identical reserve retries; closed or partially filled reservation IDs are rejected.
 - **Reservations & Partial Fills**: Supports local balance holds (`reserve`, `release`, `settle`, and `settle_partial`). Partial fills keep unfilled funds reserved and deduplicate fill IDs within one process.
 - **Settlement Modes & Namespace Guard**: Full consumption by partial fills is distinct from a full-settlement retry (`settle()` rejects reservations already completed through fills). Direct `post()` calls reject reserved `reservation-settle:` and `reservation-fill:` transaction IDs.
-- **Read-only audit**: `audit_transactions()` independently recalculates per-account/asset balances from a supplied transaction snapshot, rejects unbalanced or malformed postings, and can compare against an expected balance map. It does not verify snapshot authenticity, completeness, holds, or durable state.\n- **Scope & Limitations**: In-memory only and not connected to matching; does not survive restart and provides no durable settlement, authorization, or distributed fencing.
+- **Read-only audit**: `audit_transactions()` independently recalculates per-account/asset balances from a supplied transaction snapshot, rejects unbalanced or malformed postings, and can compare against an expected balance map. It does not verify snapshot authenticity, completeness, holds, or durable state.
+- **Scope & Limitations**: In-memory only and not connected to matching; does not survive restart and provides no durable settlement, authorization, or distributed fencing.
 
 | Focus | Description | Test File | Run Command |
 | :--- | :--- | :--- | :--- |

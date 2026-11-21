@@ -81,8 +81,8 @@ including exact retries, before modifying state. Only internal settlement
 paths may write these IDs. A rejected direct post leaves balances, holds and
 transaction history unchanged. Reservation state and holds are **in memory only**, not
 recorded in CommandJournal or the transaction history. Restart loses all holds,
-and there is no partial fill, expiry, distributed fencing, recovery, or
-durable atomicity. The reservation methods require protected source accounts.
+and there is no reservation expiry, distributed fencing, recovery, or
+durable atomicity. Partial fills are supported only in memory (see below). The reservation methods require protected source accounts.
 Do not use this for real customer assets. Run
 `python3 -m unittest discover -s tests -p 'test_ledger_reservations.py' -v`.
 
