@@ -97,3 +97,5 @@ Local [balance reservation, release, and settlement](docs/architecture/ledger.md
 Partial fill settlement keeps unfilled funds reserved and deduplicates fill IDs
 within one process; see [partial fill tests](tests/test_ledger_partial.py).
 This does not provide restart-safe settlement or distributed fencing.
+
+Direct Ledger posts now reject reserved `reservation-settle:` and `reservation-fill:` transaction IDs, so callers cannot preempt internal settlement IDs. See [namespace regression tests](tests/test_ledger_namespace.py). This is an in-process API guard, not durable settlement or authorization.
