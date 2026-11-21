@@ -126,7 +126,9 @@ class Ledger:
             account, asset, amount, state, previous_destination = reservation
             if state == 'settled':
                 if previous_destination == destination:
-                    return False
+                    if 'reservation-settle:' + reservation_id in self._transactions:
+                        return False
+                    raise LedgerError('reservation completed by partial fills')
                 raise LedgerError("conflicting settlement destination")
             if state != 'held':
                 raise LedgerError("reservation is not an untouched hold")
