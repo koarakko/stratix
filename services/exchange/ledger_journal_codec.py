@@ -57,7 +57,10 @@ def decode_ledger_command(payload):
 
 
 def encode_ledger_command(operation, **fields):
-    """Construct a JSON-safe validated payload with a stable field schema."""
+    """Construct an isolated JSON-safe validated payload with a stable field schema."""
     payload = {"type": "ledger", "version": 1, "command": {"operation": operation, **fields}}
-    decode_ledger_command(payload)
-    return payload
+    op, normalized = decode_ledger_command(payload)
+    values = dict(normalized)
+    if op == "post":
+        values["postings"] = [dict(account=a, asset=s, amount=n) for a, s, n in values["postings"]]
+    return {"type": "ledger", "version": 1, "command": {"operation": op, **values}}
