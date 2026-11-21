@@ -38,7 +38,7 @@ class LedgerJournalCodecTests(unittest.TestCase):
 
     def test_rejects_unknown_operation(self):
         with self.assertRaises(LedgerCommandError):
-            encode_ledger_command('post', transaction_id='t')
+            encode_ledger_command('unknown', transaction_id='t')
 
     def test_cannot_mutate_decoded_command_via_payload(self):
         payload = encode_ledger_command('release', reservation_id='r')

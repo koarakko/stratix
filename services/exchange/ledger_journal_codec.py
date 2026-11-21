@@ -16,6 +16,7 @@ def decode_ledger_command(payload):
         raise LedgerCommandError("invalid command")
     operation = command["operation"]
     fields = {
+        "post": {"operation", "transaction_id", "postings"},
         "reserve": {"operation", "reservation_id", "account", "asset", "amount"},
         "release": {"operation", "reservation_id"},
         "settle": {"operation", "reservation_id", "destination"},
@@ -26,11 +27,32 @@ def decode_ledger_command(payload):
     for name, value in command.items():
         if name == "operation":
             continue
-        if name == "amount":
+        if name == "postings":
+            if type(value) is not list or len(value) < 2:
+                raise LedgerCommandError("postings must be a list with at least two entries")
+            normalized = []
+            totals = {}
+            for entry in value:
+                if type(entry) is not dict or set(entry) != {"account", "asset", "amount"}:
+                    raise LedgerCommandError("invalid posting fields")
+                account, asset, amount = entry["account"], entry["asset"], entry["amount"]
+                if any(type(v) is not str or not v.strip() for v in (account, asset)):
+                    raise LedgerCommandError("invalid posting account or asset")
+                if type(amount) is not int or amount == 0:
+                    raise LedgerCommandError("posting amount must be a nonzero integer")
+                totals[asset] = totals.get(asset, 0) + amount
+                normalized.append((account, asset, amount))
+            if any(totals.values()):
+                raise LedgerCommandError("postings must balance per asset")
+        elif name == "amount":
             if type(value) is not int or value <= 0:
                 raise LedgerCommandError("amount must be a positive integer")
         elif type(value) is not str or not value.strip():
             raise LedgerCommandError(f"invalid {name}")
+    if operation == "post":
+        if command["transaction_id"].startswith(("reservation-settle:", "reservation-fill:")):
+            raise LedgerCommandError("reserved transaction namespace")
+        return operation, (("postings", tuple(normalized)), ("transaction_id", command["transaction_id"]))
     return operation, tuple((name, command[name]) for name in sorted(fields[operation] - {"operation"}))
 
 
