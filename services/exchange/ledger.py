@@ -41,8 +41,13 @@ class Ledger:
         self._lock = RLock()
 
     def post(self, transaction_id: str, postings) -> bool:
+        return self._post(transaction_id, postings)
+
+    def _post(self, transaction_id: str, postings, *, _internal=False) -> bool:
         if not isinstance(transaction_id, str) or not transaction_id.strip():
             raise LedgerError("transaction id must be nonempty")
+        if not _internal and transaction_id.startswith(("reservation-fill:", "reservation-settle:")):
+            raise LedgerError("reserved transaction id namespace")
         try:
             entries = tuple(postings)
         except TypeError as exc:
@@ -130,8 +135,8 @@ class Ledger:
             key = (account, asset)
             self._held[key] -= amount
             try:
-                if not self.post('reservation-settle:' + reservation_id,
-                                 (Posting(account, asset, -amount), Posting(destination, asset, amount))):
+                if not self._post('reservation-settle:' + reservation_id,
+                                 (Posting(account, asset, -amount), Posting(destination, asset, amount)), _internal=True):
                     raise LedgerError('settlement transaction id already used')
             except Exception:
                 self._held[key] += amount
@@ -167,9 +172,9 @@ class Ledger:
             key = (account, asset)
             self._held[key] -= amount
             try:
-                applied = self.post('reservation-fill:' + fill_id,
+                applied = self._post('reservation-fill:' + fill_id,
                                     (Posting(account, asset, -amount),
-                                     Posting(destination, asset, amount)))
+                                     Posting(destination, asset, amount)), _internal=True)
                 if not applied:
                     raise LedgerError("fill transaction id already used")
             except Exception:
