@@ -82,11 +82,10 @@ class ReservationTests(unittest.TestCase):
 
     def test_transaction_id_collision_restores_hold(self):
         self.ledger.reserve('r', 'alice', 'BTC', 4)
-        self.ledger.post('reservation-settle:r', (Posting('issuer', 'ETH', -1), Posting('bob', 'ETH', 1)))
-        with self.assertRaises(LedgerError):
-            self.ledger.settle('r', 'bob')
+        with self.assertRaisesRegex(LedgerError, 'reserved transaction id namespace'):
+            self.ledger.post('reservation-settle:r', (Posting('issuer', 'ETH', -1), Posting('bob', 'ETH', 1)))
         self.assertEqual(self.ledger.available('alice', 'BTC'), 6)
-        self.assertTrue(self.ledger.release('r'))
+        self.assertTrue(self.ledger.settle('r', 'bob'))
 
 
 if __name__ == '__main__':
