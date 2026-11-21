@@ -122,3 +122,25 @@ False. Existing fill IDs remain idempotent after closure. The decision is based
 on the internally recorded `reservation-settle:<id>` transaction and remains
 process-local; neither this history nor holds survive restart.
 Run `python3 -m unittest discover -s tests -p 'test_ledger_settlement_modes.py' -v`.
+
+## Independent transaction snapshot audit
+
+`audit_transactions(ledger.transactions(), expected_balances=None)` in
+`services.exchange.ledger_audit` independently recalculates account/asset
+balances from the supplied transaction snapshot. It rejects malformed IDs,
+postings, unbalanced per-asset transactions, and mismatched expected balances
+with `LedgerAuditError`. Returned balances omit zero-valued entries; expected
+balances use the same normalization. The function does not modify its input.
+
+```python
+from services.exchange.ledger_audit import audit_transactions
+balances = audit_transactions(ledger.transactions())
+assert balances[("alice", "BTC")] == ledger.balance("alice", "BTC")
+```
+
+This audit is read-only and **cannot prove that a snapshot is complete or
+untampered**, or reconstruct reservations/holds, which are not in the
+transaction history. A consistent snapshot must be supplied by the caller;
+concurrent changes after snapshot collection are outside its scope. It is not
+a durable replay or reconciliation mechanism. Run
+`python3 -m unittest discover -s tests -p 'test_ledger_audit.py' -v`.
