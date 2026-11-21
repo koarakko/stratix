@@ -72,7 +72,7 @@ An [in-memory double-entry ledger](docs/architecture/ledger.md) demonstrates per
 - **Protected Accounts**: Optional `protected_accounts` configuration rejects overdrafts atomically within a single `Ledger` instance (including concurrent spends).
 - **Reservations & Partial Fills**: Supports local balance holds (`reserve`, `release`, `settle`, and `settle_partial`). Partial fills keep unfilled funds reserved and deduplicate fill IDs within one process.
 - **Settlement Modes & Namespace Guard**: Full consumption by partial fills is distinct from a full-settlement retry (`settle()` rejects reservations already completed through fills). Direct `post()` calls reject reserved `reservation-settle:` and `reservation-fill:` transaction IDs.
-- **Scope & Limitations**: In-memory only and not connected to matching; does not survive restart and provides no durable settlement, authorization, or distributed fencing.
+- **Read-only audit**: `audit_transactions()` independently recalculates per-account/asset balances from a supplied transaction snapshot, rejects unbalanced or malformed postings, and can compare against an expected balance map. It does not verify snapshot authenticity, completeness, holds, or durable state.\n- **Scope & Limitations**: In-memory only and not connected to matching; does not survive restart and provides no durable settlement, authorization, or distributed fencing.
 
 | Focus | Description | Test File | Run Command |
 | :--- | :--- | :--- | :--- |
@@ -81,7 +81,7 @@ An [in-memory double-entry ledger](docs/architecture/ledger.md) demonstrates per
 | Reservations | Local balance reservation, release, and settlement | [`test_ledger_reservations.py`](tests/test_ledger_reservations.py) | `python3 -m unittest discover -s tests -p 'test_ledger_reservations.py' -v` |
 | Partial fills | Idempotent partial reservation settlement and fill-ID deduplication | [`test_ledger_partial.py`](tests/test_ledger_partial.py) | `python3 -m unittest discover -s tests -p 'test_ledger_partial.py' -v` |
 | Namespace guard | Rejects reserved `reservation-settle:` / `reservation-fill:` IDs in `post()` | [`test_ledger_namespace.py`](tests/test_ledger_namespace.py) | `python3 -m unittest discover -s tests -p 'test_ledger_namespace.py' -v` |
-| Settlement modes | Distinguishes partial-fill completion from full-settlement retries | [`test_ledger_settlement_modes.py`](tests/test_ledger_settlement_modes.py) | `python3 -m unittest discover -s tests -p 'test_ledger_settlement_modes.py' -v` |
+| Transaction audit | Recalculate balances and reject malformed or per-asset unbalanced snapshots | [`test_ledger_audit.py`](tests/test_ledger_audit.py) | `python3 -m unittest discover -s tests -p 'test_ledger_audit.py' -v` |\n| Settlement modes | Distinguishes partial-fill completion from full-settlement retries | [`test_ledger_settlement_modes.py`](tests/test_ledger_settlement_modes.py) | `python3 -m unittest discover -s tests -p 'test_ledger_settlement_modes.py' -v` |
 
 ---
 
