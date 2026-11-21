@@ -45,9 +45,9 @@ class PartialSettlementTests(unittest.TestCase):
         self.assertEqual(self.ledger.balance('bob','BTC'),3)
 
     def test_transaction_collision_restores_hold(self):
-        self.ledger.post('reservation-fill:f1',(Posting('issuer','ETH',-1),Posting('bob','ETH',1)))
-        with self.assertRaises(LedgerError): self.ledger.settle_partial('r','bob',3,'f1')
+        with self.assertRaisesRegex(LedgerError, 'reserved transaction id namespace'):
+            self.ledger.post('reservation-fill:f1',(Posting('issuer','ETH',-1),Posting('bob','ETH',1)))
         self.assertEqual(self.ledger.available('alice','BTC'),2)
-        self.assertTrue(self.ledger.settle_partial('r','bob',3,'f2'))
+        self.assertTrue(self.ledger.settle_partial('r','bob',3,'f1'))
 
 if __name__=='__main__': unittest.main()
