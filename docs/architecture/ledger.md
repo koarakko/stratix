@@ -75,9 +75,11 @@ ledger.settle("order-1", "merchant")
 assert ledger.balance("merchant", "BTC") == 6
 ```
 
-Settlement uses the transaction ID `reservation-settle:<id>`; callers must
-not use that namespace for direct posts. A collision rejects settlement and
-restores the hold. Reservation state and holds are **in memory only**, not
+Settlement uses the transaction ID `reservation-settle:<id>`. Public
+`post()` rejects both `reservation-settle:` and `reservation-fill:` prefixes,
+including exact retries, before modifying state. Only internal settlement
+paths may write these IDs. A rejected direct post leaves balances, holds and
+transaction history unchanged. Reservation state and holds are **in memory only**, not
 recorded in CommandJournal or the transaction history. Restart loses all holds,
 and there is no partial fill, expiry, distributed fencing, recovery, or
 durable atomicity. The reservation methods require protected source accounts.
@@ -100,8 +102,12 @@ ledger.settle_partial("order-2", "merchant", 2, "trade-1")
 ledger.release("order-2")  # releases remaining 3
 ```
 
-Fill transactions use `reservation-fill:<fill_id>`. Direct `post()` calls
-must not use this namespace. Collisions fail closed and restore the hold.
+Fill transactions use `reservation-fill:<fill_id>`. Public `post()` rejects
+this reserved namespace, preventing external callers from preempting fill IDs.
+This is a process-local API boundary, not authorization against code with
+access to private methods or the Ledger's mutable internals.
 Neither fill IDs nor reservation state survive restart; no storage-level
 atomicity, distributed fencing, or cross-process exactly-once semantics exist.
 Run `python3 -m unittest discover -s tests -p 'test_ledger_partial.py' -v`.
+
+Run `python3 -m unittest discover -s tests -p 'test_ledger_namespace.py' -v` for namespace, retry and concurrency regressions. This does not provide durable exactly-once settlement.
