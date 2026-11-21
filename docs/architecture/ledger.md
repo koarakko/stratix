@@ -168,3 +168,14 @@ or prove that a snapshot is complete. The expected balances in these tests
 are read separately from the same in-memory Ledger, not an independent durable
 source of truth. This is a regression test, not production reconciliation,
 crash recovery, or split-brain protection.
+
+## Reservation ID retries after state transitions
+
+Only an identical `reserve()` retry while the reservation is an untouched
+`held` reservation returns False. Once a reservation is partially filled,
+fully filled, settled, or released, reusing its ID raises `LedgerError`
+even if the original account, asset, and amount match. This prevents callers
+from treating a closed or changed reservation as an active hold. Rejection
+leaves booked balances, held amounts, and transaction history unchanged.
+Reservation IDs remain process-local and are lost on restart.
+Run `python3 -m unittest discover -s tests -p 'test_ledger_reservation_retry_states.py' -v`.
