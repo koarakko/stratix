@@ -81,7 +81,8 @@ An [in-memory double-entry ledger](docs/architecture/ledger.md) demonstrates per
 | Reservations | Local balance reservation, release, and settlement | [`test_ledger_reservations.py`](tests/test_ledger_reservations.py) | `python3 -m unittest discover -s tests -p 'test_ledger_reservations.py' -v` |
 | Partial fills | Idempotent partial reservation settlement and fill-ID deduplication | [`test_ledger_partial.py`](tests/test_ledger_partial.py) | `python3 -m unittest discover -s tests -p 'test_ledger_partial.py' -v` |
 | Namespace guard | Rejects reserved `reservation-settle:` / `reservation-fill:` IDs in `post()` | [`test_ledger_namespace.py`](tests/test_ledger_namespace.py) | `python3 -m unittest discover -s tests -p 'test_ledger_namespace.py' -v` |
-| Transaction audit | Recalculate balances and reject malformed or per-asset unbalanced snapshots | [`test_ledger_audit.py`](tests/test_ledger_audit.py) | `python3 -m unittest discover -s tests -p 'test_ledger_audit.py' -v` |\n| Settlement modes | Distinguishes partial-fill completion from full-settlement retries | [`test_ledger_settlement_modes.py`](tests/test_ledger_settlement_modes.py) | `python3 -m unittest discover -s tests -p 'test_ledger_settlement_modes.py' -v` |
+| Transaction audit | Recalculate balances and reject malformed or per-asset unbalanced snapshots | [`test_ledger_audit.py`](tests/test_ledger_audit.py) | `python3 -m unittest discover -s tests -p 'test_ledger_audit.py' -v` |
+| Multi-asset audit | Reconcile independent BTC/ETH postings and expected balances | [`test_ledger_audit_multiasset.py`](tests/test_ledger_audit_multiasset.py) | `python3 -m unittest discover -s tests -p 'test_ledger_audit_multiasset.py' -v` |\n| Settlement modes | Distinguishes partial-fill completion from full-settlement retries | [`test_ledger_settlement_modes.py`](tests/test_ledger_settlement_modes.py) | `python3 -m unittest discover -s tests -p 'test_ledger_settlement_modes.py' -v` |
 
 ---
 
