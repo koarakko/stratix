@@ -144,3 +144,7 @@ transaction history. A consistent snapshot must be supplied by the caller;
 concurrent changes after snapshot collection are outside its scope. It is not
 a durable replay or reconciliation mechanism. Run
 `python3 -m unittest discover -s tests -p 'test_ledger_audit.py' -v`.
+
+Multi-asset reconciliation regression tests cover balanced BTC/ETH transfers,
+per-asset imbalance, expected-balance asset mismatches, and input immutability.
+Run `python3 -m unittest discover -s tests -p 'test_ledger_audit_multiasset.py' -v`.
