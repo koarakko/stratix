@@ -3,7 +3,7 @@
 from .commit_watermark import QuorumWatermarkError, quorum_commit_watermark
 
 
-def raft_commit_index(voters, acknowledgements, *, term, previous, log_terms):
+def raft_commit_index(voters, acknowledgements, *, term, previous, log_terms, leader_last_index=None):
     """Advance only to a majority-replicated entry from the current term.
 
     ``log_terms`` is the leader's complete contiguous index-to-term mapping
@@ -15,10 +15,16 @@ def raft_commit_index(voters, acknowledgements, *, term, previous, log_terms):
     )
     if type(log_terms) is not dict:
         raise QuorumWatermarkError("log_terms must be a dictionary")
-    if set(log_terms) != set(range(1, candidate + 1)):
+    if leader_last_index is not None:
+        if type(leader_last_index) is not int or leader_last_index < previous or leader_last_index < 0:
+            raise QuorumWatermarkError('invalid leader last index')
+        if any(index > leader_last_index for _, index in acknowledgements.values()):
+            raise QuorumWatermarkError('acknowledgement beyond leader log')
+    expected_end = candidate if leader_last_index is None else leader_last_index
+    if set(log_terms) != set(range(1, expected_end + 1)):
         raise QuorumWatermarkError("leader log must cover candidate contiguously")
     last_term = 0
-    for index in range(1, candidate + 1):
+    for index in range(1, expected_end + 1):
         entry_term = log_terms[index]
         if type(entry_term) is not int or not 1 <= entry_term <= term:
             raise QuorumWatermarkError("invalid leader log term")
