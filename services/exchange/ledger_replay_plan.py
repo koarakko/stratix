@@ -23,7 +23,7 @@ def plan_ledger_replay(entries):
         raise LedgerReplayPlanError("entries must be iterable") from exc
     try:
         return _plan_entries(iterator)
-    except (RuntimeError, OSError) as exc:
+    except (RuntimeError, OSError, ValueError, TypeError) as exc:
         raise LedgerReplayPlanError("journal snapshot iteration failed") from exc
 
 def _plan_entries(iterator):
