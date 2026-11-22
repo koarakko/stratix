@@ -17,11 +17,17 @@ def plan_ledger_replay(entries):
     The caller must obtain entries from CommandJournal.entries(). This function
     does not authenticate journal data or check Ledger business state.
     """
-    planned = []
     try:
         iterator = iter(entries)
     except TypeError as exc:
         raise LedgerReplayPlanError("entries must be iterable") from exc
+    try:
+        return _plan_entries(iterator)
+    except (RuntimeError, OSError) as exc:
+        raise LedgerReplayPlanError("journal snapshot iteration failed") from exc
+
+def _plan_entries(iterator):
+    planned = []
     for expected, entry in enumerate(iterator, 1):
         if type(entry) is not dict or set(entry) != {"sequence", "payload"}:
             raise LedgerReplayPlanError(f"invalid journal entry {expected}")
