@@ -21,7 +21,7 @@ def raft_commit_index(voters, acknowledgements, *, term, previous, log_terms, le
         if any(index > leader_last_index for _, index in acknowledgements.values()):
             raise QuorumWatermarkError('acknowledgement beyond leader log')
     expected_end = candidate if leader_last_index is None else leader_last_index
-    if set(log_terms) != set(range(1, expected_end + 1)):
+    # Reject bool/float aliases: Python considers True == 1 and 1.0 == 1.\n    if any(type(index) is not int for index in log_terms):\n        raise QuorumWatermarkError('leader log indexes must be integers')\n    if set(log_terms) != set(range(1, expected_end + 1)):
         raise QuorumWatermarkError("leader log must cover candidate contiguously")
     last_term = 0
     for index in range(1, expected_end + 1):
