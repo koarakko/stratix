@@ -7,3 +7,9 @@
 Run `python3 -m unittest discover -s tests -p 'test_raft_commit.py' -v`.
 
 **Not production Raft.** Acknowledgements are unauthenticated and not tied to matching log hashes or durable fsync. This function does not provide election safety, log matching, membership changes, joint consensus, persistent commit state, fencing, or distributed split-brain prevention. The caller must enforce all of these; never use it as an authorization to settle real funds.
+
+## Leader-log boundary validation
+
+Optional `leader_last_index` checks every acknowledgement (including minority outliers) against the leader's last index and validates the entire contiguous leader term map, including the suffix after the quorum candidate. Invalid bounds, missing suffix entries, and future or decreasing terms fail closed. Without the argument, legacy candidate-prefix validation remains for compatibility. This is an index-range check, not authenticated log matching or durable acknowledgement verification.
+
+Regression: `python3 -m unittest discover -s tests -p 'test_raft_commit_bounds.py' -v`.
