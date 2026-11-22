@@ -19,8 +19,8 @@ def plan_ledger_replay(entries):
     """
     try:
         iterator = iter(entries)
-    except TypeError as exc:
-        raise LedgerReplayPlanError("entries must be iterable") from exc
+    except (RuntimeError, OSError, ValueError, TypeError) as exc:
+        raise LedgerReplayPlanError("journal snapshot iterator initialization failed") from exc
     try:
         return _plan_entries(iterator)
     except (RuntimeError, OSError, ValueError, TypeError) as exc:
