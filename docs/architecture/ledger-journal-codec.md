@@ -25,3 +25,11 @@ Regression: `python3 -m unittest discover -s tests -p 'test_ledger_codec_isolati
 This is **not** Ledger recovery: it does not execute Ledger operations, validate reservation/business transitions, verify a journal's authenticity, persist balances, or fence a second leader. A later recovery implementation must replay into a private Ledger, fail closed on any business error, and publish the new instance only after complete success. Never use this as a production trading recovery path.
 
 Regression: `python3 -m unittest discover -s tests -p 'test_ledger_replay_plan.py' -v`.
+
+## Iterator construction failures
+
+Before consuming the journal snapshot, `plan_ledger_replay()` constructs an iterator. An iterable may raise `OSError`, `RuntimeError`, `ValueError`, or `TypeError` from `__iter__`. These are now normalized to `LedgerReplayPlanError` with the original exception preserved as `__cause__`; no replay plan is published. The change does not catch process termination or arbitrary `BaseException` subclasses.
+
+Regression: `python3 -m unittest discover -s tests -p 'test_ledger_replay_iterator_init.py' -v`.
+
+This only protects the read-only preflight boundary. It does not authenticate the snapshot, reconstruct Ledger balances, provide persistence, or prevent split-brain writes.
