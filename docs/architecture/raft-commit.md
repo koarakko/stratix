@@ -19,3 +19,7 @@ Regression: `python3 -m unittest discover -s tests -p 'test_raft_commit_bounds.p
 Python dictionaries consider `True`, `1`, and `1.0` equivalent keys. Every `log_terms` key must have exact type `int`; boolean, floating-point, and string indexes fail closed with `QuorumWatermarkError`. This validates input shape only; it does not authenticate the leader's log.
 
 Regression: `python3 -m unittest discover -s tests -p 'test_raft_commit_index_types.py' -v`.
+
+## Regression repair (2026-11-23)
+
+The strict index-key check is now represented by real Python newlines rather than literal escaped `\\n` characters. This repairs a `SyntaxError` that previously prevented importing `raft_commit.py`. Run `python3 -m unittest discover -s tests -p 'test_raft_commit_regression.py' -v` for eight focused cases covering current-term commits, older-term rejection, empty logs, malformed index aliases, missing suffix, minority outliers and stable prior commits. The focused local run used reconstructed real replication modules; full-repository regression and post-push execution remain separate verification tasks. This is not durable log matching or leader fencing.
