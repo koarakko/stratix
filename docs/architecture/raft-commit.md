@@ -13,3 +13,9 @@ Run `python3 -m unittest discover -s tests -p 'test_raft_commit.py' -v`.
 Optional `leader_last_index` checks every acknowledgement (including minority outliers) against the leader's last index and validates the entire contiguous leader term map, including the suffix after the quorum candidate. Invalid bounds, missing suffix entries, and future or decreasing terms fail closed. Without the argument, legacy candidate-prefix validation remains for compatibility. This is an index-range check, not authenticated log matching or durable acknowledgement verification.
 
 Regression: `python3 -m unittest discover -s tests -p 'test_raft_commit_bounds.py' -v`.
+
+## Strict log-index types
+
+Python dictionaries consider `True`, `1`, and `1.0` equivalent keys. Every `log_terms` key must have exact type `int`; boolean, floating-point, and string indexes fail closed with `QuorumWatermarkError`. This validates input shape only; it does not authenticate the leader's log.
+
+Regression: `python3 -m unittest discover -s tests -p 'test_raft_commit_index_types.py' -v`.
