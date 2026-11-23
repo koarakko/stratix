@@ -9,7 +9,7 @@ class QuorumWatermarkError(ValueError):
     """Invalid membership or acknowledgement snapshot."""
 
 
-def quorum_commit_watermark(voters, acknowledgements, *, term, previous=0):
+def quorum_commit_watermark(voters, acknowledgements, *, term, previous=0, max_index=None):
     """Return the largest index acknowledged by a strict majority.
 
     Every configured voter must be represented. Missing reports are rejected
@@ -21,6 +21,8 @@ def quorum_commit_watermark(voters, acknowledgements, *, term, previous=0):
         raise QuorumWatermarkError("term must be a positive integer")
     if type(previous) is not int or previous < 0:
         raise QuorumWatermarkError("previous must be a nonnegative integer")
+    if max_index is not None and (type(max_index) is not int or max_index < previous):
+        raise QuorumWatermarkError("max_index must be an integer at least previous")
     if type(voters) in (str, bytes, bytearray, dict):
         raise QuorumWatermarkError("voters must be an iterable of voter names, not a scalar or mapping")
     try:
@@ -45,6 +47,8 @@ def quorum_commit_watermark(voters, acknowledgements, *, term, previous=0):
             raise QuorumWatermarkError("stale or invalid acknowledgement term")
         if type(index) is not int or index < 0:
             raise QuorumWatermarkError("invalid acknowledgement index")
+        if max_index is not None and index > max_index:
+            raise QuorumWatermarkError("acknowledgement exceeds local log bound")
         indexes.append(index)
     candidate = sorted(indexes, reverse=True)[len(members) // 2]
     if candidate < previous:
