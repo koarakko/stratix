@@ -12,7 +12,7 @@ _DIGEST = re.compile(r"[0-9a-f]{64}\Z")
 
 
 def verified_commit_index(voters, reports, *, term, previous, log_terms,
-                          leader_hashes, leader_last_index):
+                          leader_hashes, leader_last_index, leader_id=None):
     """Calculate a Raft commit index from validated hash-chain ACK snapshots.
 
     Each report is (term, index, chain_hash, durable). The hash must be a
@@ -30,6 +30,8 @@ def verified_commit_index(voters, reports, *, term, previous, log_terms,
     if any(type(h) is not str or _DIGEST.fullmatch(h) is None
            for h in leader_hashes.values()):
         raise QuorumWatermarkError("invalid leader chain hash")
+    if leader_id is not None and (type(leader_id) is not str or not leader_id.strip()):
+        raise QuorumWatermarkError("invalid leader id")
     acknowledgements = {}
     for voter, report in reports.items():
         if type(voter) is not str:
@@ -47,6 +49,11 @@ def verified_commit_index(voters, reports, *, term, previous, log_terms,
         elif type(digest) is not str or _DIGEST.fullmatch(digest) is None or digest != leader_hashes[index]:
             raise QuorumWatermarkError("invalid or mismatched acknowledged log hash")
         acknowledgements[voter] = (ack_term, index)
+    if leader_id is not None:
+        leader_report = reports.get(leader_id)
+        if (leader_report is None or type(leader_report[0]) is not int
+                or leader_report[0] != term or leader_report[1] != leader_last_index):
+            raise QuorumWatermarkError("leader must acknowledge its complete local log in current term")
     return raft_commit_index(
         voters, acknowledgements, term=term, previous=previous,
         log_terms=log_terms, leader_last_index=leader_last_index,
