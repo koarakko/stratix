@@ -37,3 +37,7 @@ and `__eq__` methods that impersonate a configured voter. The check also
 rejects extra malformed keys even if the honest majority is present.
 Run `python3 -m unittest discover -s tests -p 'test_ack_voter_keys.py' -v`.
 This is an input-shape check, not reporter authentication or durable ACK proof.
+
+## Cross-layer regression
+
+`python3 -m unittest discover -s tests -p 'test_verified_commit_integration.py' -v` exercises the actual `verified_commit_index` → `raft_commit_index` → `quorum_commit_watermark` path. It checks current-term-only advancement, preservation of the previous watermark, rejection of minority out-of-range/hash-mismatched/non-durable reports, missing voters, incomplete leader logs, and deterministic retry after failure. These are in-memory preflight tests, **not** proof of ACK authentication, fsync, leader fencing, or crash-safe consensus.
