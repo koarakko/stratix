@@ -39,8 +39,11 @@ def verified_commit_index(voters, reports, *, term, previous, log_terms,
             raise QuorumWatermarkError("non-durable acknowledgement")
         if type(index) is not int or index < 0 or index > leader_last_index:
             raise QuorumWatermarkError("invalid acknowledged index")
-        if digest != (None if index == 0 else leader_hashes[index]):
-            raise QuorumWatermarkError("acknowledged log hash mismatch")
+        if index == 0:
+            if digest is not None:
+                raise QuorumWatermarkError("zero index requires null hash")
+        elif type(digest) is not str or _DIGEST.fullmatch(digest) is None or digest != leader_hashes[index]:
+            raise QuorumWatermarkError("invalid or mismatched acknowledged log hash")
         acknowledgements[voter] = (ack_term, index)
     return raft_commit_index(
         voters, acknowledgements, term=term, previous=previous,
