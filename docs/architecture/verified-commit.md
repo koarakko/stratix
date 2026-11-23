@@ -30,3 +30,10 @@ All malformed values fail closed, including minority-voter reports.
 Run `python3 -m unittest discover -s tests -p 'test_verified_commit_digest_types.py' -v`
 for the additional digest-boundary tests. These checks do not authenticate
 reports or prove durable persistence.
+
+Voter report dictionary keys must be exact built-in `str` values before
+membership comparison. This rejects non-string objects with custom `__hash__`
+and `__eq__` methods that impersonate a configured voter. The check also
+rejects extra malformed keys even if the honest majority is present.
+Run `python3 -m unittest discover -s tests -p 'test_ack_voter_keys.py' -v`.
+This is an input-shape check, not reporter authentication or durable ACK proof.
