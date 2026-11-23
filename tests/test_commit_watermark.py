@@ -58,6 +58,21 @@ class QuorumWatermarkTests(unittest.TestCase):
         with self.assertRaises(QuorumWatermarkError):
             quorum_commit_watermark(('a', 'b', 'c'), reports, term=2)
 
+    def test_scalar_membership_rejected_even_if_reports_match_characters(self):
+        reports = {'a': (1, 4), 'b': (1, 4), 'c': (1, 0)}
+        for voters in ('abc', b'abc', bytearray(b'abc')):
+            with self.subTest(voters=voters), self.assertRaises(QuorumWatermarkError):
+                quorum_commit_watermark(voters, reports, term=1)
+
+    def test_mapping_membership_rejected(self):
+        with self.assertRaises(QuorumWatermarkError):
+            quorum_commit_watermark({'a': True, 'b': True}, {'a': (1, 2), 'b': (1, 2)}, term=1)
+
+    def test_tuple_and_generator_membership_still_supported(self):
+        reports = {'a': (1, 3), 'b': (1, 2), 'c': (1, 0)}
+        self.assertEqual(quorum_commit_watermark(('a', 'b', 'c'), reports, term=1), 2)
+        self.assertEqual(quorum_commit_watermark((v for v in ('a', 'b', 'c')), reports, term=1), 2)
+
     def test_valid_snapshot_retry(self):
         reports = {'a': (2, 4), 'b': (2, 3), 'c': (2, 0)}
         self.assertEqual(quorum_commit_watermark(('a', 'b', 'c'), reports, term=2), 3)
