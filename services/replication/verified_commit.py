@@ -32,6 +32,8 @@ def verified_commit_index(voters, reports, *, term, previous, log_terms,
         raise QuorumWatermarkError("invalid leader chain hash")
     acknowledgements = {}
     for voter, report in reports.items():
+        if type(voter) is not str:
+            raise QuorumWatermarkError("invalid voter key type")
         if type(report) is not tuple or len(report) != 4:
             raise QuorumWatermarkError("invalid durable report")
         ack_term, index, digest, durable = report
