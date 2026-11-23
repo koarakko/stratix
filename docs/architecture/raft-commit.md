@@ -10,9 +10,9 @@ Run `python3 -m unittest discover -s tests -p 'test_raft_commit.py' -v`.
 
 ## Leader-log boundary validation
 
-Optional `leader_last_index` checks every acknowledgement (including minority outliers) against the leader's last index and validates the entire contiguous leader term map, including the suffix after the quorum candidate. Invalid bounds, missing suffix entries, and future or decreasing terms fail closed. Without the argument, legacy candidate-prefix validation remains for compatibility. This is an index-range check, not authenticated log matching or durable acknowledgement verification.
+Optional `leader_last_index` is forwarded as `max_index` to the shared quorum calculator. This rejects every acknowledgement (including minority outliers) beyond the leader's last index before calculating the candidate. The leader gate also validates the entire contiguous leader term map, including the suffix after the quorum candidate. Invalid bounds, missing suffix entries, and future or decreasing terms fail closed. Without the argument, legacy candidate-prefix validation remains for compatibility. The bound must come from an independently verified local durable log. This is an index-range check, not authenticated log matching or durable acknowledgement verification.
 
-Regression: `python3 -m unittest discover -s tests -p 'test_raft_commit_bounds.py' -v`.
+Regressions: `python3 -m unittest discover -s tests -p 'test_raft_commit_bounds.py' -v` and `python3 -m unittest discover -s tests -p 'test_raft_commit_bound_forwarding.py' -v`.
 
 ## Strict log-index types
 

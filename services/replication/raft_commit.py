@@ -11,15 +11,14 @@ def raft_commit_index(voters, acknowledgements, *, term, previous, log_terms, le
     authenticate matching, durable follower acknowledgements and fence leaders.
     """
     candidate = quorum_commit_watermark(
-        voters, acknowledgements, term=term, previous=previous
+        voters, acknowledgements, term=term, previous=previous,
+        max_index=leader_last_index
     )
     if type(log_terms) is not dict:
         raise QuorumWatermarkError("log_terms must be a dictionary")
     if leader_last_index is not None:
         if type(leader_last_index) is not int or leader_last_index < previous or leader_last_index < 0:
             raise QuorumWatermarkError('invalid leader last index')
-        if any(index > leader_last_index for _, index in acknowledgements.values()):
-            raise QuorumWatermarkError('acknowledgement beyond leader log')
     expected_end = candidate if leader_last_index is None else leader_last_index
     # Reject bool/float aliases: Python considers True == 1 and 1.0 == 1.
     if any(type(index) is not int for index in log_terms):
