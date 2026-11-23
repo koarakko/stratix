@@ -41,3 +41,17 @@ This is an input-shape check, not reporter authentication or durable ACK proof.
 ## Cross-layer regression
 
 `python3 -m unittest discover -s tests -p 'test_verified_commit_integration.py' -v` exercises the actual `verified_commit_index` → `raft_commit_index` → `quorum_commit_watermark` path. It checks current-term-only advancement, preservation of the previous watermark, rejection of minority out-of-range/hash-mismatched/non-durable reports, missing voters, incomplete leader logs, and deterministic retry after failure. These are in-memory preflight tests, **not** proof of ACK authentication, fsync, leader fencing, or crash-safe consensus.
+
+## Optional leader self-report check
+
+Pass `leader_id="leader"` to require the named leader's supplied report to
+acknowledge `leader_last_index` in the current term, with the same durable and
+chain-hash checks applied to all reports. A missing, stale, underreported, or
+malformed leader report fails closed, including when other voters form a majority.
+Omitting `leader_id` retains legacy behavior for callers that have not yet
+identified the leader explicitly.
+
+Run `python3 -m unittest discover -s tests -p 'test_verified_commit_leader.py' -v`.
+This only checks **caller-supplied assertions**, not leader identity,
+authenticity, actual fsync, or fencing. The caller must bind `leader_id` to
+an independently authenticated and fenced leadership epoch.
