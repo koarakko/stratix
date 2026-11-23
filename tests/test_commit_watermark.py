@@ -40,6 +40,30 @@ class QuorumWatermarkTests(unittest.TestCase):
     def test_no_quorum_progress(self):
         self.assertEqual(quorum_commit_watermark(('a', 'b', 'c'), {'a': (1, 7), 'b': (1, 0), 'c': (1, 0)}, term=1), 0)
 
+    def test_voter_key_spoofing_rejected(self):
+        class Impostor:
+            def __hash__(self):
+                return hash('a')
+
+            def __eq__(self, other):
+                return other == 'a'
+
+        reports = {'a': (2, 4), 'b': (2, 3), 'c': (2, 0)}
+        reports[Impostor()] = reports.pop('a')
+        with self.assertRaises(QuorumWatermarkError):
+            quorum_commit_watermark(('a', 'b', 'c'), reports, term=2)
+
+    def test_extra_nonstring_voter_key_rejected(self):
+        reports = {'a': (2, 4), 'b': (2, 3), 'c': (2, 0), 1: (2, 0)}
+        with self.assertRaises(QuorumWatermarkError):
+            quorum_commit_watermark(('a', 'b', 'c'), reports, term=2)
+
+    def test_valid_snapshot_retry(self):
+        reports = {'a': (2, 4), 'b': (2, 3), 'c': (2, 0)}
+        self.assertEqual(quorum_commit_watermark(('a', 'b', 'c'), reports, term=2), 3)
+        self.assertEqual(quorum_commit_watermark(('a', 'b', 'c'), reports, term=2), 3)
+
+
 
 if __name__ == '__main__':
     unittest.main()
