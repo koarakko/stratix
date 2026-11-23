@@ -29,7 +29,9 @@ def quorum_commit_watermark(voters, acknowledgements, *, term, previous=0):
         raise QuorumWatermarkError("voters must be nonempty names")
     if len(set(members)) != len(members):
         raise QuorumWatermarkError("duplicate voter")
-    if type(acknowledgements) is not dict or set(acknowledgements) != set(members):
+    if (type(acknowledgements) is not dict
+            or any(type(voter) is not str for voter in acknowledgements)
+            or set(acknowledgements) != set(members)):
         raise QuorumWatermarkError("acknowledgements must match voter membership")
     indexes = []
     for voter in members:
