@@ -21,6 +21,8 @@ def quorum_commit_watermark(voters, acknowledgements, *, term, previous=0):
         raise QuorumWatermarkError("term must be a positive integer")
     if type(previous) is not int or previous < 0:
         raise QuorumWatermarkError("previous must be a nonnegative integer")
+    if type(voters) in (str, bytes, bytearray, dict):
+        raise QuorumWatermarkError("voters must be an iterable of voter names, not a scalar or mapping")
     try:
         members = tuple(voters)
     except TypeError as exc:
