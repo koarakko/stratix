@@ -20,3 +20,13 @@ leadership, fence old leaders, or prevent split brain. The caller must
 independently verify the cumulative hash-chain construction and persistence
 evidence before passing reports. This is not production consensus and must
 not authorize real-asset settlement.
+
+ACK digest input is checked with exact built-in types before comparison:
+index zero requires `None` by identity; positive indexes require an exact
+`str` containing 64 lowercase ASCII hexadecimal characters. This prevents
+objects with custom equality methods from impersonating a valid digest.
+All malformed values fail closed, including minority-voter reports.
+
+Run `python3 -m unittest discover -s tests -p 'test_verified_commit_digest_types.py' -v`
+for the additional digest-boundary tests. These checks do not authenticate
+reports or prove durable persistence.
