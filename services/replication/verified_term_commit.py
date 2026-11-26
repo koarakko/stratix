@@ -1,20 +1,29 @@
 """Fail-closed v2 term-bound log verification before educational Raft commit gating."""
 
 from .commit_watermark import QuorumWatermarkError
-from .term_log import TermLogError, verify_term_log
+from .log_snapshot import (
+    DEFAULT_MAX_LOG_SNAPSHOT_ENTRIES,
+    DEFAULT_MAX_LOG_SNAPSHOT_PAYLOAD_BYTES,
+    materialize_log_snapshot,
+)
+from .term_log import verify_term_log
 from .verified_commit import verified_commit_index
 
 
-def verified_term_commit_index(voters, reports, *, term, previous, entries, leader_id=None):
-    """Derive leader terms and hashes exclusively from a verified v2 snapshot.
+def verified_term_commit_index(
+    voters, reports, *, term, previous, entries, leader_id=None,
+    max_entries=DEFAULT_MAX_LOG_SNAPSHOT_ENTRIES,
+    max_payload_bytes=DEFAULT_MAX_LOG_SNAPSHOT_PAYLOAD_BYTES,
+):
+    """Derive leader terms and hashes from one bounded verified snapshot.
 
-    Reports are (current_term, durable_index, v2_chain_hash, durable_bool).
-    When supplied, leader_id requires that voter's report to cover the full
-    local log in the current term. This does not authenticate reports, fsync
-    storage, or fence leaders.
+    max_entries and max_payload_bytes bound snapshot metadata and payload
+    memory. This does not authenticate reports, fsync storage, or fence leaders.
     """
     try:
-        snapshot = tuple(entries)
+        snapshot = materialize_log_snapshot(
+            entries, max_entries=max_entries, max_payload_bytes=max_payload_bytes
+        )
         verify_term_log(snapshot)
     except Exception as exc:
         # Normalize ordinary iterator and verifier failures at the API boundary.
