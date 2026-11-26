@@ -55,3 +55,24 @@ Run `python3 -m unittest discover -s tests -p 'test_verified_commit_leader.py' -
 This only checks **caller-supplied assertions**, not leader identity,
 authenticity, actual fsync, or fencing. The caller must bind `leader_id` to
 an independently authenticated and fenced leadership epoch.
+
+
+## Contiguous log-map validation
+
+Both verified_commit_index and raft_commit_index validate a complete
+1-based index map using its cardinality and a bounded-key scan. Keys must be
+exact built-in integers, the map length must equal the advertised last index,
+and every key must be within 1..last_index. For a Python dictionary, those
+conditions prove that no index is missing or duplicated without constructing
+a full set of every expected index.
+
+The check uses **O(1) auxiliary memory** and O(n) scan time. A very large
+advertised last index paired with a small map is rejected by the length check
+before any range is traversed. The Raft term map and verified hash map are
+checked independently; malformed or sparse input fails closed.
+
+Run
+\`python3 -m unittest discover -s tests -p 'test_raft_log_contiguity.py' -v\`
+for large-bound, same-cardinality out-of-range, and valid-contiguous cases.
+This is still an in-memory input preflight, not proof of an authenticated log,
+durable storage, leader fencing, or production consensus.
