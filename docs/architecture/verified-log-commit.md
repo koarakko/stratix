@@ -19,3 +19,7 @@ not authenticate a remote node, prove a follower fsync, verify term provenance,
 or prevent a compromised leader from inventing a chain. There is no distributed
 fencing, membership reconfiguration, network consensus, or persistence guarantee.
 Do not use this helper to authorize real-asset settlement.
+
+## Optional leader self-report
+
+Pass `leader_id` to require that the named voter report the complete verified local log in the requested current term. Missing or underreported leader self-reports fail closed even if follower ACKs otherwise form a majority. Omitting the argument preserves legacy behavior. The name is matched against caller-supplied voter reports; it is not authenticated, and this option does not provide distributed fencing.

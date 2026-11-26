@@ -5,11 +5,13 @@ from .term_log import TermLogError, verify_term_log
 from .verified_commit import verified_commit_index
 
 
-def verified_term_commit_index(voters, reports, *, term, previous, entries):
+def verified_term_commit_index(voters, reports, *, term, previous, entries, leader_id=None):
     """Derive leader terms and hashes exclusively from a verified v2 snapshot.
 
     Reports are (current_term, durable_index, v2_chain_hash, durable_flag).
-    This does not authenticate reports, fsync storage, or fence leaders.
+    When supplied, leader_id requires that voter's report to cover the full
+    local log in the current term. This does not authenticate reports, fsync
+    storage, or fence leaders.
     """
     try:
         snapshot = tuple(entries)
@@ -20,5 +22,5 @@ def verified_term_commit_index(voters, reports, *, term, previous, entries):
         voters, reports, term=term, previous=previous,
         log_terms={entry.sequence: entry.term for entry in snapshot},
         leader_hashes={entry.sequence: entry.entry_hash for entry in snapshot},
-        leader_last_index=len(snapshot),
+        leader_last_index=len(snapshot), leader_id=leader_id,
     )

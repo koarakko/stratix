@@ -88,5 +88,43 @@ class VerifiedTermCommitTests(unittest.TestCase):
             self.calc(log_terms={1: 3, 2: 3, 3: 3})
 
 
+
+    def test_explicit_leader_must_ack_full_log_in_current_term(self):
+        self.assertEqual(self.calc(leader_id='a'), 2)
+
+    def test_underreported_leader_rejected_even_when_other_voter_is_ahead(self):
+        reports = dict(self.reports, a=(3, 2, self.entries[1].entry_hash, True))
+        with self.assertRaises(QuorumWatermarkError):
+            verified_term_commit_index(('a', 'b', 'c'), reports, term=3,
+                                       previous=0, entries=self.entries, leader_id='a')
+
+    def test_missing_named_leader_report_rejected(self):
+        with self.assertRaises(QuorumWatermarkError):
+            self.calc(leader_id='unknown-leader')
+
+    def test_stale_named_leader_report_rejected(self):
+        reports = dict(self.reports, a=(2, 3, self.entries[2].entry_hash, True))
+        with self.assertRaises(QuorumWatermarkError):
+            verified_term_commit_index(('a', 'b', 'c'), reports, term=3,
+                                       previous=0, entries=self.entries, leader_id='a')
+
+    def test_invalid_leader_id_rejected(self):
+        for leader_id in ('', '  ', True, 1, []):
+            with self.subTest(leader_id=leader_id), self.assertRaises(QuorumWatermarkError):
+                self.calc(leader_id=leader_id)
+
+    def test_retry_after_leader_self_ack_failure(self):
+        reports = dict(self.reports, a=(3, 1, self.entries[0].entry_hash, True))
+        with self.assertRaises(QuorumWatermarkError):
+            verified_term_commit_index(('a', 'b', 'c'), reports, term=3,
+                                       previous=0, entries=self.entries, leader_id='a')
+        self.assertEqual(self.calc(leader_id='a'), 2)
+
+    def test_zero_length_log_with_explicit_leader(self):
+        reports = {'leader': (3, 0, None, True)}
+        self.assertEqual(verified_term_commit_index(('leader',), reports, term=3,
+                         previous=0, entries=(), leader_id='leader'), 0)
+
+
 if __name__ == '__main__':
     unittest.main()

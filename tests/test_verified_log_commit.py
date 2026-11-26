@@ -41,4 +41,22 @@ class VerifiedLogCommitTests(unittest.TestCase):
     def test_missing_term(self):
         with self.assertRaises(QuorumWatermarkError): self.calc(log_terms={1:2,2:3})
 
+
+    def test_explicit_leader_self_ack(self):
+        self.assertEqual(self.calc(leader_id='a'), 2)
+
+    def test_underreported_leader_rejected(self):
+        reports = dict(self.reports, a=(3, 2, self.entries[1].entry_hash, True))
+        with self.assertRaises(QuorumWatermarkError):
+            verified_log_commit_index(('a', 'b', 'c'), reports, term=3,
+                                      previous=0, log_terms={1: 2, 2: 3, 3: 3},
+                                      entries=self.entries, leader_id='a')
+
+    def test_missing_leader_rejected(self):
+        with self.assertRaises(QuorumWatermarkError):
+            self.calc(leader_id='unknown')
+
+    def test_legacy_without_leader_id_preserved(self):
+        self.assertEqual(self.calc(leader_id=None), 2)
+
 if __name__=='__main__': unittest.main()
