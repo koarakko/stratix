@@ -9,6 +9,13 @@ class QuorumWatermarkError(ValueError):
     """Invalid membership or acknowledgement snapshot."""
 
 
+def strict_majority_size(voter_count):
+    """Return the minimum number of votes required for a strict majority."""
+    if type(voter_count) is not int or voter_count < 1:
+        raise QuorumWatermarkError("voter_count must be a positive integer")
+    return voter_count // 2 + 1
+
+
 def quorum_commit_watermark(voters, acknowledgements, *, term, previous=0, max_index=None):
     """Return the largest index acknowledged by a strict majority.
 
@@ -50,7 +57,8 @@ def quorum_commit_watermark(voters, acknowledgements, *, term, previous=0, max_i
         if max_index is not None and index > max_index:
             raise QuorumWatermarkError("acknowledgement exceeds local log bound")
         indexes.append(index)
-    candidate = sorted(indexes, reverse=True)[len(members) // 2]
+    required = strict_majority_size(len(members))
+    candidate = sorted(indexes, reverse=True)[required - 1]
     if candidate < previous:
         raise QuorumWatermarkError("commit watermark regression")
     return candidate
