@@ -72,7 +72,7 @@ before any range is traversed. The Raft term map and verified hash map are
 checked independently; malformed or sparse input fails closed.
 
 Run
-\`python3 -m unittest discover -s tests -p 'test_raft_log_contiguity.py' -v\`
+`python3 -m unittest discover -s tests -p 'test_raft_log_contiguity.py' -v`
 for large-bound, same-cardinality out-of-range, and valid-contiguous cases.
 This is still an in-memory input preflight, not proof of an authenticated log,
 durable storage, leader fencing, or production consensus.
