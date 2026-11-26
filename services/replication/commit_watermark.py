@@ -4,6 +4,8 @@ Educational calculation only: does not perform leader election, durable writes,
 term fencing, or authenticate acknowledgements.
 """
 
+from collections.abc import Mapping
+
 
 class QuorumWatermarkError(ValueError):
     """Invalid membership or acknowledgement snapshot."""
@@ -30,7 +32,7 @@ def quorum_commit_watermark(voters, acknowledgements, *, term, previous=0, max_i
         raise QuorumWatermarkError("previous must be a nonnegative integer")
     if max_index is not None and (type(max_index) is not int or max_index < previous):
         raise QuorumWatermarkError("max_index must be an integer at least previous")
-    if type(voters) in (str, bytes, bytearray, dict):
+    if isinstance(voters, (str, bytes, bytearray, Mapping)):
         raise QuorumWatermarkError("voters must be an iterable of voter names, not a scalar or mapping")
     try:
         members = tuple(voters)
