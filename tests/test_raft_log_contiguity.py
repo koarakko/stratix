@@ -18,6 +18,16 @@ class RaftLogContiguityTests(unittest.TestCase):
                 leader_last_index=10**12,
             )
 
+    def test_raft_rejects_huge_quorum_candidate_without_leader_bound(self):
+        with self.assertRaises(QuorumWatermarkError):
+            raft_commit_index(
+                ("leader",),
+                {"leader": (3, 10**12)},
+                term=3,
+                previous=0,
+                log_terms={},
+            )
+
     def test_raft_rejects_same_cardinality_out_of_range_key(self):
         with self.assertRaises(QuorumWatermarkError):
             raft_commit_index(
