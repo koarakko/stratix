@@ -67,5 +67,20 @@ class LogIntegrityTests(unittest.TestCase):
             verify((replace(entry, payload=LyingBytes(b"four")),))
 
 
+    def test_verify_rejects_hash_subclasses_with_overridden_comparison(self):
+        class LyingHash(str):
+            def __eq__(self, other):
+                return True
+            def __ne__(self, other):
+                return False
+            __hash__ = str.__hash__
+
+        entry = append((), b"payload")[0]
+        for field in ("previous_hash", "entry_hash"):
+            forged = replace(entry, **{field: LyingHash("0" * 64)})
+            with self.subTest(field=field), self.assertRaises(LogIntegrityError):
+                verify((forged,))
+
+
 if __name__ == "__main__":
     unittest.main()

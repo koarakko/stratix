@@ -78,5 +78,17 @@ class VerifiedLogSnapshotLimitTests(unittest.TestCase):
             self.call(entries=altered, max_payload_bytes=100)
 
 
+    def test_v1_commit_rejects_hash_subclass_with_overridden_comparison(self):
+        class LyingHash(str):
+            def __eq__(self, other):
+                return True
+            def __ne__(self, other):
+                return False
+            __hash__ = str.__hash__
+        altered = (replace(self.entries[0], previous_hash=LyingHash("0" * 64)),) + self.entries[1:]
+        with self.assertRaises(QuorumWatermarkError):
+            self.call(entries=altered, max_payload_bytes=100)
+
+
 if __name__ == "__main__":
     unittest.main()

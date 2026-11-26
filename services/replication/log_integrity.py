@@ -34,7 +34,7 @@ def _check_sequence(sequence: int) -> None:
 
 
 def _check_hash(value: str) -> None:
-    if (not isinstance(value, str) or len(value) != 64
+    if (type(value) is not str or len(value) != 64
             or any(c not in "0123456789abcdef" for c in value)):
         raise LogIntegrityError("hash must be 64 lowercase hexadecimal characters")
 

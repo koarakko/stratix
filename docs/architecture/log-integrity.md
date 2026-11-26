@@ -11,6 +11,13 @@ payload length, payload bytes and previous digest. `append` first validates the
 existing history and returns a new tuple; `verify` rejects gaps, duplicates,
 reordering, changed bytes, malformed hashes and broken links.
 
+Payloads must be the exact built-in `bytes` type, not subclasses: subclass
+overrides such as a forged `__len__` must not influence the length prefix or hash
+verification. Hash fields likewise require exact built-in `str` values,
+preventing overridden equality methods from spoofing chain comparisons.
+`append` and `verify` reject bytes subclasses before hashing, and `verify`
+rejects hash-string subclasses.
+
 Run from the repository root:
 
 ```sh
@@ -18,12 +25,7 @@ python3 -m unittest discover -s tests -p 'test_log_integrity.py' -v
 ```
 
 **Security boundaries:** SHA-256 links detect accidental or adversarial mutation
-only when the expected trusted head digest is held separately.
-
-The v1 implementation requires the exact built-in `bytes` type rather than a
-subclass. This keeps the fixed-width payload-length prefix canonical and
-prevents an overridden `__len__` from changing the digest input. Both
-`append` and `verify` reject bytes subclasses before hashing. An attacker who
+only when the expected trusted head digest is held separately. An attacker who
 can rewrite the whole log and head digest can forge a consistent chain. No
 signatures, trusted checkpoint, persistent fsync, canonical command serializer,
 leader epoch, fencing, quorum, or crash-consistent storage exist here. The
