@@ -39,7 +39,7 @@ def materialize_log_snapshot(
             return tuple(snapshot)
         payload = getattr(entry, "payload", None)
         if isinstance(payload, bytes):
-            payload_bytes += len(payload)
+            payload_bytes += bytes.__len__(payload)
             if payload_bytes > max_payload_bytes:
                 raise LogSnapshotLimitError(
                     f"log snapshot payload exceeds configured limit of {max_payload_bytes} bytes"
