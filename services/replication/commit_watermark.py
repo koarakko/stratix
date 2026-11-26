@@ -34,7 +34,9 @@ def quorum_commit_watermark(voters, acknowledgements, *, term, previous=0, max_i
         raise QuorumWatermarkError("voters must be an iterable of voter names, not a scalar or mapping")
     try:
         members = tuple(voters)
-    except (TypeError, ValueError, RuntimeError, OSError) as exc:
+    except Exception as exc:
+        # Normalize ordinary iterator failures; process-control exceptions
+        # such as KeyboardInterrupt and SystemExit must still propagate.
         raise QuorumWatermarkError("unable to materialize voter membership") from exc
     if not members or any(type(v) is not str or not v.strip() for v in members):
         raise QuorumWatermarkError("voters must be nonempty names")

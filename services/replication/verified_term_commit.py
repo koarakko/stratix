@@ -8,7 +8,7 @@ from .verified_commit import verified_commit_index
 def verified_term_commit_index(voters, reports, *, term, previous, entries, leader_id=None):
     """Derive leader terms and hashes exclusively from a verified v2 snapshot.
 
-    Reports are (current_term, durable_index, v2_chain_hash, durable_flag).
+    Reports are (current_term, durable_index, v2_chain_hash, durable_bool).
     When supplied, leader_id requires that voter's report to cover the full
     local log in the current term. This does not authenticate reports, fsync
     storage, or fence leaders.
@@ -16,7 +16,9 @@ def verified_term_commit_index(voters, reports, *, term, previous, entries, lead
     try:
         snapshot = tuple(entries)
         verify_term_log(snapshot)
-    except (TermLogError, TypeError, ValueError, OverflowError, OSError, RuntimeError) as exc:
+    except Exception as exc:
+        # Normalize ordinary iterator and verifier failures at the API boundary.
+        # BaseException subclasses used for process control still propagate.
         raise QuorumWatermarkError('invalid term-bound leader log snapshot') from exc
     return verified_commit_index(
         voters, reports, term=term, previous=previous,

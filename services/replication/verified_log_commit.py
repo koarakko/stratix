@@ -13,7 +13,9 @@ def verified_log_commit_index(voters, reports, *, term, previous, log_terms, ent
     try:
         snapshot = tuple(entries)
         verify(snapshot)
-    except (LogIntegrityError, TypeError, ValueError, OverflowError, OSError, RuntimeError) as exc:
+    except Exception as exc:
+        # A hostile or failing iterable must not bypass the fail-closed API.
+        # BaseException subclasses used for process control still propagate.
         raise QuorumWatermarkError('invalid leader log snapshot') from exc
     return verified_commit_index(
         voters, reports, term=term, previous=previous, log_terms=log_terms,
