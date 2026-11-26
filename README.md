@@ -101,7 +101,7 @@ An [in-memory double-entry ledger](docs/architecture/ledger.md) demonstrates per
 - [Command Journal](docs/architecture/command-journal.md)
 - [Fencing Gate](docs/architecture/fencing-gate.md)
 - [Double-Entry Ledger](docs/architecture/ledger.md)
-- [Verified Raft Commit Preflight](docs/architecture/verified-commit.md): current-term quorum and hash-chain checks, including O(1)-auxiliary-memory contiguous index validation (educational only).
+- [Verified Raft Commit Preflight](docs/architecture/verified-commit.md): current-term quorum and hash-chain checks, including O(1)-auxiliary-memory contiguous index validation (educational only). The v1/v2 log wrappers also cap snapshots at 100,000 entries and 64 MiB of aggregate byte payload by default; both limits are configurable per call and overflow fails closed.
 - [Verified v2 Term-Bound Raft Commit](docs/architecture/verified-term-commit.md): derives term and hash maps from one verified snapshot and can require the named leader's full current-term self-report.
 - [Verified Leader Log to Raft Commit](docs/architecture/verified-log-commit.md): validates a v1 hash-chain snapshot and can apply the same explicit leader self-report check.
 - [ADR 0001: Consistency Before Availability](docs/adr/0001-consistency-before-availability.md)
