@@ -100,6 +100,7 @@ An [in-memory double-entry ledger](docs/architecture/ledger.md) demonstrates per
 - [Command Journal](docs/architecture/command-journal.md)
 - [Fencing Gate](docs/architecture/fencing-gate.md)
 - [Double-Entry Ledger](docs/architecture/ledger.md)
+- [Verified Raft Commit Preflight](docs/architecture/verified-commit.md): current-term quorum and hash-chain checks, including O(1)-auxiliary-memory contiguous index validation (educational only).
 - [ADR 0001: Consistency Before Availability](docs/adr/0001-consistency-before-availability.md)
 
 ---
