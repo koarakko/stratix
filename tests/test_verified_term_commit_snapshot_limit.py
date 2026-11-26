@@ -1,4 +1,5 @@
 import unittest
+from dataclasses import replace
 
 from services.replication.commit_watermark import QuorumWatermarkError
 from services.replication.term_log import append_term
@@ -65,6 +66,15 @@ class VerifiedTermSnapshotLimitTests(unittest.TestCase):
             raise KeyboardInterrupt()
         with self.assertRaises(KeyboardInterrupt):
             self.call(entries=interrupted(), max_entries=2)
+
+
+    def test_v2_commit_rejects_bytes_subclass_even_when_byte_cap_allows_it(self):
+        class LyingBytes(bytes):
+            def __len__(self):
+                return 0
+        altered = (replace(self.entries[0], payload=LyingBytes(b'a')),) + self.entries[1:]
+        with self.assertRaises(QuorumWatermarkError):
+            self.call(entries=altered, max_payload_bytes=100)
 
 
 if __name__ == "__main__":

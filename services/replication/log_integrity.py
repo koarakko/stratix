@@ -20,6 +20,8 @@ class LogEntry:
 
 
 def _digest(sequence: int, payload: bytes, previous_hash: str) -> str:
+    if type(payload) is not bytes:
+        raise LogIntegrityError("payload must be exact immutable bytes")
     # Length prefix makes the byte encoding unambiguous.
     return sha256(DOMAIN + sequence.to_bytes(8, "big")
                   + len(payload).to_bytes(8, "big") + payload
@@ -41,8 +43,8 @@ def append(entries: Iterable[LogEntry], payload: bytes) -> tuple[LogEntry, ...]:
     """Return a new verified log with one appended payload; never mutate the input."""
     existing = tuple(entries)
     verify(existing)
-    if not isinstance(payload, bytes):
-        raise LogIntegrityError("payload must be immutable bytes")
+    if type(payload) is not bytes:
+        raise LogIntegrityError("payload must be exact immutable bytes")
     sequence = len(existing) + 1
     _check_sequence(sequence)
     previous = existing[-1].entry_hash if existing else GENESIS
@@ -59,8 +61,8 @@ def verify(entries: Iterable[LogEntry]) -> str:
         _check_sequence(entry.sequence)
         if entry.sequence != expected:
             raise LogIntegrityError("noncontiguous or duplicate sequence")
-        if not isinstance(entry.payload, bytes):
-            raise LogIntegrityError("payload must be immutable bytes")
+        if type(entry.payload) is not bytes:
+            raise LogIntegrityError("payload must be exact immutable bytes")
         _check_hash(entry.previous_hash)
         _check_hash(entry.entry_hash)
         if entry.previous_hash != previous:

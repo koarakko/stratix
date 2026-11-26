@@ -18,7 +18,12 @@ python3 -m unittest discover -s tests -p 'test_log_integrity.py' -v
 ```
 
 **Security boundaries:** SHA-256 links detect accidental or adversarial mutation
-only when the expected trusted head digest is held separately. An attacker who
+only when the expected trusted head digest is held separately.
+
+The v1 implementation requires the exact built-in `bytes` type rather than a
+subclass. This keeps the fixed-width payload-length prefix canonical and
+prevents an overridden `__len__` from changing the digest input. Both
+`append` and `verify` reject bytes subclasses before hashing. An attacker who
 can rewrite the whole log and head digest can forge a consistent chain. No
 signatures, trusted checkpoint, persistent fsync, canonical command serializer,
 leader epoch, fencing, quorum, or crash-consistent storage exist here. The

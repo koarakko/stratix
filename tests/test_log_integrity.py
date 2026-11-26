@@ -51,5 +51,21 @@ class LogIntegrityTests(unittest.TestCase):
                             append((), b"a\x00")[0].entry_hash)
 
 
+    def test_append_rejects_bytes_subclass_with_overridden_length(self):
+        class LyingBytes(bytes):
+            def __len__(self):
+                return 0
+        with self.assertRaises(LogIntegrityError):
+            append((), LyingBytes(b"four"))
+
+    def test_verify_rejects_bytes_subclass_with_overridden_length(self):
+        class LyingBytes(bytes):
+            def __len__(self):
+                return 0
+        entry = append((), b"four")[0]
+        with self.assertRaises(LogIntegrityError):
+            verify((replace(entry, payload=LyingBytes(b"four")),))
+
+
 if __name__ == "__main__":
     unittest.main()

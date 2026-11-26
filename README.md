@@ -96,6 +96,7 @@ An [in-memory double-entry ledger](docs/architecture/ledger.md) demonstrates per
 ## Documentation
 
 - [Architecture Overview](docs/architecture/overview.md)
+- [Committed Log Integrity](docs/architecture/log-integrity.md)
 - [Quorum Commit Watermark](docs/architecture/commit-watermark.md): strict-majority threshold, ACK-order invariance, and monotonicity checks.
 - [Sequenced Exchange](docs/architecture/sequenced-exchange.md)
 - [Command Journal](docs/architecture/command-journal.md)
