@@ -45,6 +45,14 @@ class LogSnapshotTests(unittest.TestCase):
             materialize_log_snapshot(entries(), max_entries=10, max_payload_bytes=3)
         self.assertEqual(consumed, [b'ab', b'cd'])
 
+    def test_bytes_subclass_cannot_underreport_payload_length(self):
+        class LyingBytes(bytes):
+            def __len__(self):
+                return 0
+        entry = SimpleNamespace(payload=LyingBytes(b"four"))
+        with self.assertRaises(LogSnapshotLimitError):
+            materialize_log_snapshot((entry,), max_payload_bytes=3)
+
     def test_default_limits_are_explicit(self):
         self.assertEqual(DEFAULT_MAX_LOG_SNAPSHOT_ENTRIES, 100_000)
         self.assertEqual(DEFAULT_MAX_LOG_SNAPSHOT_PAYLOAD_BYTES, 64 * 1024 * 1024)
