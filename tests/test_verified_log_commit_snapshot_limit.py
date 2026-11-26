@@ -1,0 +1,72 @@
+import unittest
+
+from services.replication.commit_watermark import QuorumWatermarkError
+from services.replication.log_integrity import append
+from services.replication.verified_log_commit import verified_log_commit_index
+
+
+class VerifiedLogSnapshotLimitTests(unittest.TestCase):
+    def setUp(self):
+        self.entries = append(append(append((), b'a'), b'b'), b'c')
+        self.reports = {
+            'leader': (3, 3, self.entries[2].entry_hash, True),
+            'f1': (3, 2, self.entries[1].entry_hash, True),
+            'f2': (3, 0, None, True),
+        }
+
+    def call(self, entries=None, **changes):
+        args = dict(term=3, previous=0, log_terms={1: 2, 2: 3, 3: 3},
+                    entries=self.entries if entries is None else entries,
+                    leader_id='leader', max_entries=3)
+        args.update(changes)
+        return verified_log_commit_index(('leader', 'f1', 'f2'), self.reports, **args)
+
+    def test_exact_limit_accepts_verified_commit(self):
+        self.assertEqual(self.call(), 2)
+
+    def test_oversized_snapshot_fails_closed(self):
+        with self.assertRaises(QuorumWatermarkError):
+            self.call(max_entries=2)
+
+    def test_invalid_limit_fails_closed(self):
+        for value in (True, -1, 1.5, None):
+            with self.subTest(value=value), self.assertRaises(QuorumWatermarkError):
+                self.call(max_entries=value)
+            with self.subTest(payload_limit=value), self.assertRaises(QuorumWatermarkError):
+                self.call(max_payload_bytes=value)
+
+    def test_infinite_stream_is_bounded_and_rejected(self):
+        consumed = []
+        def endless():
+            for entry in self.entries:
+                consumed.append(entry.sequence)
+                yield entry
+            while True:
+                consumed.append(len(consumed) + 1)
+                yield self.entries[-1]
+        with self.assertRaises(QuorumWatermarkError):
+            self.call(entries=endless(), max_entries=2)
+        self.assertEqual(consumed, [1, 2, 3])
+
+    def test_payload_byte_limit_fails_closed(self):
+        with self.assertRaises(QuorumWatermarkError):
+            self.call(max_payload_bytes=2)
+
+    def test_exact_payload_byte_limit_accepts_snapshot(self):
+        self.assertEqual(self.call(max_payload_bytes=3), 2)
+
+    def test_failure_does_not_poison_fresh_retry(self):
+        with self.assertRaises(QuorumWatermarkError):
+            self.call(max_entries=2)
+        self.assertEqual(self.call(), 2)
+
+    def test_process_control_exception_on_limit_lookahead_propagates(self):
+        def interrupted():
+            yield from self.entries[:2]
+            raise KeyboardInterrupt()
+        with self.assertRaises(KeyboardInterrupt):
+            self.call(entries=interrupted(), max_entries=2)
+
+
+if __name__ == "__main__":
+    unittest.main()
