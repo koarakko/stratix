@@ -17,3 +17,28 @@ Pass leader_id to require that the named voter report the complete verified loca
 The wrapper materializes the supplied entries iterable exactly once before verifying or deriving hashes. Any ordinary Exception raised during iterator creation, iteration, or snapshot verification is wrapped as QuorumWatermarkError; partially yielded entries can never produce a commit candidate. KeyboardInterrupt, SystemExit, and other BaseException process-control signals propagate unchanged. Retrying requires a fresh iterable when the previous iterator was consumed or failed.
 
 Run: python3 -m unittest discover -s tests -p 'test_verified_log_commit_iterator_exceptions.py' -v
+
+## Bounded snapshot materialization
+
+Before hash verification, the wrapper uses `materialize_log_snapshot()` to
+bound the supplied iterable. Defaults are `max_entries=100_000` and
+`max_payload_bytes=67_108_864` (64 MiB). Both parameters must be exact
+nonnegative integers; zero permits only an empty snapshot or zero aggregate
+payload. Callers may tune them for their workload, but increasing either value
+increases the resource budget.
+
+The materializer counts bytes-valued entry payloads before retaining each
+entry. It reads at most one lookahead item after reaching the entry limit to
+distinguish an exact-limit snapshot from an oversized one. On either limit
+violation the wrapper raises `QuorumWatermarkError` and returns no commit
+candidate. Ordinary iterator exceptions are normalized; process-control
+`BaseException` subclasses propagate. A consumed or failed iterator must be
+recreated for a retry.
+
+These are entry-count and raw-payload-byte limits, not an exact RSS ceiling:
+Python object, tuple, mapping, and hash-verification overhead are additional.
+The wrapper remains an in-memory preflight, not durable consensus.
+
+Run:
+- `python3 -m unittest discover -s tests -p 'test_log_snapshot.py' -v`
+- `python3 -m unittest discover -s tests -p 'test_verified_log_commit_snapshot_limit.py' -v`
