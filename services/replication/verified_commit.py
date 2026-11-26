@@ -16,7 +16,7 @@ def verified_commit_index(voters, reports, *, term, previous, log_terms,
     """Calculate a Raft commit index from validated hash-chain ACK snapshots.
 
     Each report is (term, index, chain_hash, durable). The hash must be a
-    SHA-256 lowercase hex digest of the leader's *cumulative* log chain at
+    SHA-256 lowercase hex digest of the leader's cumulative log chain at
     that index. Index zero uses None. The leader is included in voters.
     """
     if type(reports) is not dict or type(leader_hashes) is not dict:
@@ -25,7 +25,10 @@ def verified_commit_index(voters, reports, *, term, previous, log_terms,
         raise QuorumWatermarkError("invalid leader last index")
     if any(type(i) is not int for i in leader_hashes):
         raise QuorumWatermarkError("invalid hash index type")
-    if set(leader_hashes) != set(range(1, leader_last_index + 1)):
+    # Cardinality plus bounded exact-int keys proves contiguity without
+    # materializing a full range set; auxiliary memory stays O(1).
+    if (len(leader_hashes) != leader_last_index
+            or any(not 1 <= index <= leader_last_index for index in leader_hashes)):
         raise QuorumWatermarkError("leader hashes must cover full log")
     if any(type(h) is not str or _DIGEST.fullmatch(h) is None
            for h in leader_hashes.values()):
