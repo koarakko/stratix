@@ -6,7 +6,7 @@ from .commit_watermark import QuorumWatermarkError, quorum_commit_watermark
 def raft_commit_index(voters, acknowledgements, *, term, previous, log_terms, leader_last_index=None):
     """Advance only to a majority-replicated entry from the current term.
 
-    ``log_terms`` is the leader's complete contiguous index-to-term mapping
+    log_terms is the leader's complete contiguous index-to-term mapping
     from 1 through the majority candidate. The caller must independently
     authenticate matching, durable follower acknowledgements and fence leaders.
     """
@@ -23,7 +23,10 @@ def raft_commit_index(voters, acknowledgements, *, term, previous, log_terms, le
     # Reject bool/float aliases: Python considers True == 1 and 1.0 == 1.
     if any(type(index) is not int for index in log_terms):
         raise QuorumWatermarkError('leader log indexes must be integers')
-    if set(log_terms) != set(range(1, expected_end + 1)):
+    # Cardinality plus bounded exact-int keys proves contiguity without
+    # materializing a full range set; auxiliary memory stays O(1).
+    if (len(log_terms) != expected_end
+            or any(not 1 <= index <= expected_end for index in log_terms)):
         raise QuorumWatermarkError("leader log must cover candidate contiguously")
     last_term = 0
     for index in range(1, expected_end + 1):
